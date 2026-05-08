@@ -6,7 +6,6 @@ import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/models/category.dart';
 import 'package:romanticists_app/widgets/post_card.dart';
 import 'package:romanticists_app/app_theme.dart';
-
 import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 
@@ -21,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   bool _searchOpen = false;
+  List<Map<String, dynamic>> _peopleResults = [];
 
   @override
   void initState() {
@@ -71,6 +71,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onSearch(String value) {
     context.read<PostsProvider>().search(value);
+    _searchPeople(value);
+  }
+
+  Future<void> _searchPeople(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() => _peopleResults = []);
+      return;
+    }
+    final results = await FirebaseService.instance.searchUsers(query);
+    if (mounted) setState(() => _peopleResults = results);
   }
 
   @override
@@ -203,7 +213,68 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // ── Posts list ──
-    return [
+    final slivers = <Widget>[];
+
+    // People results (shown above posts during search)
+    if (_peopleResults.isNotEmpty) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+            child: Text(
+              'PEOPLE',
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.4,
+                color: AppColors.outline,
+              ),
+            ),
+          ),
+        ),
+      );
+      slivers.add(
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, i) {
+              final person = _peopleResults[i];
+              final uid = person['uid'] as String? ?? '';
+              final name = person['displayName'] as String? ?? 'Romanticist';
+              final username = person['username'] as String? ?? '';
+              final photo = person['photoURL'] as String?;
+              return ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                leading: CircleAvatar(
+                  radius: 22,
+                  backgroundColor: AppColors.surfaceContainerHigh,
+                  backgroundImage: photo != null ? NetworkImage(photo) : null,
+                  child: photo == null
+                      ? Text(name[0].toUpperCase(),
+                          style: GoogleFonts.ebGaramond(
+                              fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary))
+                      : null,
+                ),
+                title: Text(name, style: GoogleFonts.ebGaramond(fontSize: 16, fontWeight: FontWeight.w600)),
+                subtitle: username.isNotEmpty
+                    ? Text('@$username', style: GoogleFonts.inter(fontSize: 12, color: AppColors.outline))
+                    : null,
+                trailing: const Icon(Icons.chevron_right, color: AppColors.outline),
+                onTap: () => context.push('/user/$uid?name=$name'),
+              );
+            },
+            childCount: _peopleResults.length,
+          ),
+        ),
+      );
+      slivers.add(
+        const SliverToBoxAdapter(
+          child: Divider(height: 1, indent: 16, endIndent: 16),
+        ),
+      );
+    }
+
+    // Posts
+    slivers.add(
       SliverPadding(
         padding: const EdgeInsets.only(
           left: 16,
@@ -221,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
               final post = provider.posts[index];
-              final isFeatured = index == 0 && provider.searchQuery.isEmpty;
+              final isFeatured = index == 0 && provider.searchQuery.isEmpty && _peopleResults.isEmpty;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: PostCard(
@@ -235,7 +306,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-    ];
+    );
+    return slivers;
   }
 }
 

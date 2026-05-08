@@ -195,6 +195,37 @@ class FirebaseService {
     return snap.count ?? 0;
   }
 
+  /// Searches users by username or displayName prefix.
+  Future<List<Map<String, dynamic>>> searchUsers(String query) async {
+    if (query.trim().isEmpty) return [];
+    final q = query.trim().toLowerCase();
+    try {
+      // Query by username prefix
+      final byUsername = await _db
+          .collection(_usersCol)
+          .where('username', isGreaterThanOrEqualTo: q)
+          .where('username', isLessThanOrEqualTo: '$q\uf8ff')
+          .limit(10)
+          .get();
+
+      // Query by displayName prefix (case-insensitive via lowercase field)
+      final byName = await _db
+          .collection(_usersCol)
+          .where('displayNameLower', isGreaterThanOrEqualTo: q)
+          .where('displayNameLower', isLessThanOrEqualTo: '$q\uf8ff')
+          .limit(10)
+          .get();
+
+      final merged = <String, Map<String, dynamic>>{};
+      for (final doc in [...byUsername.docs, ...byName.docs]) {
+        merged[doc.id] = {'uid': doc.id, ...doc.data()};
+      }
+      return merged.values.toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   // ─── Profile Updates ────────────────────────────────────────────────────────
 
   /// Uploads a profile picture to Firebase Storage and returns the download URL.
@@ -216,9 +247,11 @@ class FirebaseService {
   /// Updates the user's Firestore document with new profile data.
   Future<void> updateUserProfile(String uid, Map<String, dynamic> data) async {
     try {
+      final dn = data['displayName'] as String?;
       await _db.collection(_usersCol).doc(uid).set(
         {
           ...data,
+          if (dn != null) 'displayNameLower': dn.toLowerCase(),
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),

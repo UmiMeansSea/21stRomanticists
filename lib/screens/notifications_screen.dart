@@ -182,9 +182,9 @@ class _SubscribedPostTile extends StatelessWidget {
       ),
       trailing: const Icon(Icons.chevron_right, color: AppColors.outline),
       onTap: () {
-        // Navigate to public profile or post detail if available
-        if (sub.userId.isNotEmpty) {
-          context.push('/user/${sub.userId}?name=${sub.authorName ?? ''}');
+        final uid = sub.userId;
+        if (uid != null && uid.isNotEmpty) {
+          context.push('/user/$uid?name=${sub.authorName ?? ''}');
         }
       },
     );

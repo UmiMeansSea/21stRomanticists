@@ -8,6 +8,7 @@ import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/models/category.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/providers/bookmarks_provider.dart';
+import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/app_theme.dart';
 
 /// Editorial post card — mirrors the Stitch design's surface-container-low
@@ -295,6 +296,15 @@ class _AuthorRow extends StatelessWidget {
     this.small = false,
   });
 
+  Future<String?> _fetchUsername() async {
+    try {
+      final info = await FirebaseService.instance.getUserPublicInfo(authorId);
+      return info?['username'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -315,13 +325,21 @@ class _AuthorRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            authorName,
-            style: GoogleFonts.inter(
-              fontSize: small ? 11 : 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.onSurface,
-            ),
+          FutureBuilder<String?>(
+            future: _fetchUsername(),
+            builder: (context, snapshot) {
+              final display = snapshot.hasData && (snapshot.data?.isNotEmpty ?? false)
+                  ? '@${snapshot.data}'
+                  : authorName;
+              return Text(
+                display,
+                style: GoogleFonts.inter(
+                  fontSize: small ? 11 : 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurface,
+                ),
+              );
+            },
           ),
         ],
       ),

@@ -157,6 +157,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       color: AppColors.onSurface,
                     ),
                   ),
+                  if ((_firestoreData?['username'] as String?)?.isNotEmpty ?? false)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        '@${_firestoreData!['username']}',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: AppColors.outline,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 8),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40),
