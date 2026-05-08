@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Submissions ─────────────────────────────────────────────────────────
+    // Authenticated users can create submissions.
+    // Users can read/update only their own submissions.
+    // Deletion is admin-only (done from Firebase Console).
+    match /submissions/{submissionId} {
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+
+      allow read: if request.auth != null
+                  && resource.data.userId == request.auth.uid;
+
+      allow update: if request.auth != null
+                    && resource.data.userId == request.auth.uid
+                    // Only allow editing draft submissions, not published ones
+                    && resource.data.status == 'draft';
+
+      allow delete: if false; // admin only via Firebase Console / Cloud Functions
+    }
+
+    // ── User private data ────────────────────────────────────────────────────
+    // Each user can read/write only their own subcollections:
+    //   users/{uid}/bookmarks/{postId}
+    //   users/{uid}/tokens/{tokenId}
+    match /users/{userId} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId;
+
+      match /{subcollection}/{docId} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == userId;
+      }
+    }
+
+    // ── Public read-only collections ─────────────────────────────────────────
+    // Example: featured posts curated by admins (add as needed)
+    // match /featured/{docId} {
+    //   allow read: if true;
+    //   allow write: if false;
+    // }
+
+    // ── Deny everything else ─────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

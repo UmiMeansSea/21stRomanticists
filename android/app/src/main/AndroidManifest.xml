@@ -2,8 +2,10 @@
     <!-- Network permissions — required for WordPress API and Firebase -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Required for push notifications on Android 13+ -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="romanticists_app"
+        android:label="The 21st Romanticists"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
