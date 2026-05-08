@@ -12,9 +12,11 @@ import 'package:romanticists_app/screens/home_screen.dart';
 import 'package:romanticists_app/screens/post_detail.dart';
 import 'package:romanticists_app/screens/category_screen.dart';
 import 'package:romanticists_app/screens/login_screen.dart';
+import 'package:romanticists_app/screens/settings_screen.dart';
 import 'package:romanticists_app/screens/submit_screen.dart';
 import 'package:romanticists_app/screens/profile_screen.dart';
 import 'package:romanticists_app/models/post.dart';
+import 'package:romanticists_app/services/notification_service.dart';
 import 'package:romanticists_app/widgets/app_shell.dart';
 
 // ─── NOTE ──────────────────────────────────────────────────────────────────
@@ -47,10 +49,8 @@ void main() async {
 
   // ── Firebase init — guarded so a slow/failing init never blocks the app ──
   try {
-    await Firebase.initializeApp().timeout(
-      const Duration(seconds: 8),
-      onTimeout: () => throw Exception('Firebase init timed out'),
-    );
+    await Firebase.initializeApp();
+    await NotificationService.instance.init();
     debugPrint('[Firebase] initialized successfully');
   } catch (e) {
     // Firebase failed or timed out — the app still loads.
@@ -128,6 +128,12 @@ final GoRouter _router = GoRouter(
           path: '/profile',
           pageBuilder: (context, state) => const NoTransitionPage(
             child: ProfileScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/settings',
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: SettingsScreen(),
           ),
         ),
       ],

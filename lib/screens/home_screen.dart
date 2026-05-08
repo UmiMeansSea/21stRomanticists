@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/models/category.dart';
@@ -124,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         IconButton(
           icon: const Icon(Icons.settings_outlined, color: AppColors.primary),
-          onPressed: () {},
+          onPressed: () => context.push('/settings'),
           tooltip: 'Settings',
         ),
       ],
