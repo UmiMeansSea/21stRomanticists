@@ -18,6 +18,7 @@ import 'package:romanticists_app/screens/submit_screen.dart';
 import 'package:romanticists_app/screens/profile_screen.dart';
 import 'package:romanticists_app/screens/public_profile_screen.dart';
 import 'package:romanticists_app/screens/edit_profile_screen.dart';
+import 'package:romanticists_app/screens/collection_detail_screen.dart';
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/services/notification_service.dart';
 import 'package:romanticists_app/widgets/app_shell.dart';
@@ -177,6 +178,20 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/edit-profile',
       builder: (context, state) => const EditProfileScreen(),
+    ),
+
+    GoRoute(
+      path: '/collection/:uid/:id',
+      builder: (context, state) {
+        final uid = state.pathParameters['uid'] ?? '';
+        final colId = state.pathParameters['id'] ?? '';
+        final name = state.uri.queryParameters['name'] ?? 'Collection';
+        return CollectionDetailScreen(
+          uid: uid,
+          collectionId: colId,
+          collectionName: name,
+        );
+      },
     ),
 
     GoRoute(

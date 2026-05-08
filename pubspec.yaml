@@ -39,7 +39,6 @@ dependencies:
   package_info_plus: ^8.0.0
   image_picker: ^1.2.2
   image_cropper: ^12.2.1
-  firebase_storage: ^11.7.7
 
 dev_dependencies:
   flutter_test:

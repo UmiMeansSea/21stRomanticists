@@ -5,8 +5,11 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/models/submission.dart';
+import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
+import 'package:romanticists_app/providers/bookmarks_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
+import 'package:romanticists_app/services/collections_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -17,6 +20,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   List<Submission>? _submissions;
+  List<PostCollection>? _collections;
   Map<String, dynamic>? _firestoreData;
   String? _error;
   bool _loading = false;
@@ -39,10 +43,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final subs = await FirebaseService.instance.getUserSubmissions(uid);
       final data = await FirebaseService.instance.getUserPublicInfo(uid);
+      final cols = await CollectionsService.instance.getCollections(uid);
       if (mounted) {
         setState(() {
           _submissions = subs;
           _firestoreData = data;
+          _collections = cols;
         });
       }
     } on FirebaseServiceException catch (e) {
@@ -279,8 +285,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               _buildPublishedGrid(),
               _buildEmptyPlaceholder('No Drafts'),
-              _buildEmptyPlaceholder('No Collections'),
-              _buildEmptyPlaceholder('No Saved Posts'),
+              _buildCollectionsGrid(),
+              _buildSavedGrid(),
             ],
           ),
         ),
@@ -296,12 +302,162 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_submissions == null || _submissions!.isEmpty) {
       return _EmptyState();
     }
-
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: MasonryGrid(
-        submissions: _submissions!,
+      child: MasonryGrid(posts: _submissions!),
+    );
+  }
+
+  Widget _buildCollectionsGrid() {
+    final uid = context.read<AuthProvider>().user?.uid ?? '';
+    if (_loading) {
+      return const Center(
+          child: CircularProgressIndicator(color: AppColors.primary));
+    }
+    final cols = _collections ?? [];
+    if (cols.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.collections_bookmark_outlined,
+                size: 52,
+                color: AppColors.outline.withValues(alpha: 0.3)),
+            const SizedBox(height: 16),
+            Text('No Collections Yet',
+                style: GoogleFonts.ebGaramond(
+                    fontSize: 20, color: AppColors.onSurface)),
+            const SizedBox(height: 8),
+            Text('Save a post and add it to a collection.',
+                style: GoogleFonts.literata(
+                    fontSize: 13,
+                    color: AppColors.outline,
+                    fontStyle: FontStyle.italic)),
+          ],
+        ),
+      );
+    }
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.85,
       ),
+      itemCount: cols.length,
+      itemBuilder: (context, i) {
+        final col = cols[i];
+        return GestureDetector(
+          onTap: () => context.push(
+              '/collection/$uid/${col.id}?name=${Uri.encodeComponent(col.name)}'),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(8),
+              image: col.coverImageUrl != null
+                  ? DecorationImage(
+                      image: NetworkImage(col.coverImageUrl!),
+                      fit: BoxFit.cover,
+                      colorFilter: ColorFilter.mode(
+                          Colors.black.withValues(alpha: 0.25),
+                          BlendMode.darken))
+                  : null,
+            ),
+            child: Stack(
+              children: [
+                if (col.coverImageUrl == null)
+                  const Center(
+                    child: Icon(Icons.collections_bookmark_outlined,
+                        size: 36, color: AppColors.outline),
+                  ),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(8)),
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: col.coverImageUrl != null ? 0.7 : 0.15),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          col.name,
+                          style: GoogleFonts.ebGaramond(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: col.coverImageUrl != null
+                                ? Colors.white
+                                : AppColors.onSurface,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          '${col.postCount} post${col.postCount == 1 ? '' : 's'}',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: col.coverImageUrl != null
+                                ? Colors.white70
+                                : AppColors.outline,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSavedGrid() {
+    return Consumer<BookmarksProvider>(
+      builder: (context, bm, _) {
+        if (bm.status == BookmarksStatus.loading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (bm.posts.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.bookmark_border_outlined,
+                    size: 52, color: AppColors.outline.withValues(alpha: 0.3)),
+                const SizedBox(height: 16),
+                Text('No Saved Posts',
+                    style: GoogleFonts.ebGaramond(fontSize: 20)),
+                const SizedBox(height: 8),
+                Text('Posts you bookmark will appear here.',
+                    style: GoogleFonts.literata(
+                        fontSize: 13,
+                        color: AppColors.outline,
+                        fontStyle: FontStyle.italic)),
+              ],
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: MasonryGrid(
+            posts: bm.posts, 
+          ),
+        );
+      },
     );
   }
 
@@ -359,12 +515,11 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 }
 
 class MasonryGrid extends StatelessWidget {
-  final List<Submission> submissions;
-  const MasonryGrid({super.key, required this.submissions});
+  final List<dynamic> posts; // Can be List<Submission> or List<Post>
+  const MasonryGrid({super.key, required this.posts});
 
   @override
   Widget build(BuildContext context) {
-    // Simple custom grid for the "Masonry" effect
     return CustomScrollView(
       slivers: [
         SliverGrid(
@@ -376,91 +531,107 @@ class MasonryGrid extends StatelessWidget {
           ),
           delegate: SliverChildBuilderDelegate(
             (context, index) {
-              final sub = submissions[index];
-              return _GridCard(sub: sub);
+              final item = posts[index];
+              return _GridCard(item: item);
             },
-            childCount: submissions.length,
+            childCount: posts.length,
           ),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
     );
   }
 }
 
 class _GridCard extends StatelessWidget {
-  final Submission sub;
-  const _GridCard({required this.sub});
+  final dynamic item;
+  const _GridCard({required this.item});
 
   @override
   Widget build(BuildContext context) {
-    final date = DateFormat('MMMM d').format(sub.submittedAt);
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(4),
-      ),
+    String? imageUrl;
+    String title;
+    String? category;
+    String? route;
+
+    if (item is Submission) {
+      imageUrl = item.imageUrl;
+      title = item.title;
+      category = (item.tags != null && item.tags!.isNotEmpty) ? item.tags!.first : 'WORK';
+    } else if (item is Post) {
+      imageUrl = item.imageUrl;
+      title = item.cleanTitle;
+      category = item.categoryName;
+      route = '/post/${item.id}';
+    } else {
+      title = 'Unknown';
+    }
+
+    return GestureDetector(
+      onTap: route != null ? () => context.push(route!) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // If we had images for submissions, we'd show them here.
-          // For now, let's use a themed placeholder or just text.
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  Text(
-                    date,
-                    style: GoogleFonts.inter(
-                        fontSize: 10, color: AppColors.outline),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    sub.title,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.ebGaramond(
-                        fontSize: 18, fontWeight: FontWeight.w600, height: 1.1),
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: Text(
-                      sub.content,
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.literata(
-                          fontSize: 12,
-                          color: AppColors.onSurfaceVariant,
-                          height: 1.4),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text(
-                        'KEEP READING',
-                        style: GoogleFonts.inter(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5),
+                  if (imageUrl != null && imageUrl.isNotEmpty)
+                    Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _placeholder(),
+                    )
+                  else
+                    _placeholder(),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      const Spacer(),
-                      const Icon(Icons.bookmark_border, size: 16),
-                    ],
+                      child: Text(
+                        category?.toUpperCase() ?? 'ROMANTICIST',
+                        style: GoogleFonts.inter(
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.ebGaramond(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+              color: AppColors.onSurface,
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _placeholder() => Container(
+        color: AppColors.surfaceContainerHigh,
+        child: const Icon(Icons.auto_stories_outlined, color: AppColors.outline),
+      );
 }
 
-// Reuse the existing states but styled for the new profile
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -469,8 +640,7 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.edit_note_outlined,
-              size: 48, color: AppColors.outline),
+          const Icon(Icons.edit_note_outlined, size: 48, color: AppColors.outline),
           const SizedBox(height: 16),
           Text(
             'No submissions yet',

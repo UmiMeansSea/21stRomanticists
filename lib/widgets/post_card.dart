@@ -9,6 +9,7 @@ import 'package:romanticists_app/models/category.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/providers/bookmarks_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
+import 'package:romanticists_app/widgets/save_to_collection_sheet.dart';
 import 'package:romanticists_app/app_theme.dart';
 
 /// Editorial post card — mirrors the Stitch design's surface-container-low
@@ -360,15 +361,13 @@ class _BookmarkButton extends StatelessWidget {
       builder: (context, bm, _) {
         final saved = bm.isBookmarked(post.id);
         return GestureDetector(
-          onTap: () {
+          onTap: () async {
             final auth = context.read<AuthProvider>();
             if (!auth.isAuthenticated) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(
-                    'Sign in to save posts.',
-                    style: GoogleFonts.literata(color: Colors.white),
-                  ),
+                  content: Text('Sign in to save posts.',
+                      style: GoogleFonts.literata(color: Colors.white)),
                   backgroundColor: AppColors.primary,
                   behavior: SnackBarBehavior.floating,
                   action: SnackBarAction(
@@ -380,7 +379,16 @@ class _BookmarkButton extends StatelessWidget {
               );
               return;
             }
-            bm.toggle(post);
+            // Toggle bookmark state (All Saved)
+            await bm.toggle(post);
+            // Then open collection sheet
+            if (context.mounted) {
+              await SaveToCollectionSheet.show(
+                context,
+                uid: auth.user!.uid,
+                post: post,
+              );
+            }
           },
           behavior: HitTestBehavior.opaque,
           child: Padding(

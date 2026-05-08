@@ -1,0 +1,270 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:romanticists_app/app_theme.dart';
+import 'package:romanticists_app/models/post.dart';
+import 'package:romanticists_app/services/collections_service.dart';
+
+/// Instagram-style bottom sheet — lets the user save a post to one or more
+/// collections, create a new collection, or remove from existing ones.
+///
+/// Usage:
+///   await SaveToCollectionSheet.show(context, uid: uid, post: post);
+class SaveToCollectionSheet extends StatefulWidget {
+  final String uid;
+  final Post post;
+
+  const SaveToCollectionSheet({
+    super.key,
+    required this.uid,
+    required this.post,
+  });
+
+  static Future<void> show(
+    BuildContext context, {
+    required String uid,
+    required Post post,
+  }) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SaveToCollectionSheet(uid: uid, post: post),
+    );
+  }
+
+  @override
+  State<SaveToCollectionSheet> createState() => _SaveToCollectionSheetState();
+}
+
+class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
+  List<PostCollection> _collections = [];
+  Set<String> _savedIn = {};
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final cols = await CollectionsService.instance.getCollections(widget.uid);
+    final savedIn = await CollectionsService.instance
+        .getCollectionIdsForPost(widget.uid, widget.post.id);
+    if (mounted) setState(() { _collections = cols; _savedIn = savedIn; _loading = false; });
+  }
+
+  Future<void> _toggle(PostCollection col) async {
+    final inCol = _savedIn.contains(col.id);
+    setState(() {
+      if (inCol) {
+        _savedIn.remove(col.id);
+      } else {
+        _savedIn.add(col.id);
+      }
+    });
+    if (inCol) {
+      await CollectionsService.instance
+          .removePostFromCollection(widget.uid, col.id, widget.post.id);
+    } else {
+      await CollectionsService.instance
+          .addPostToCollection(widget.uid, col.id, widget.post);
+    }
+  }
+
+  Future<void> _createNew() async {
+    final name = await _showNameDialog();
+    if (name == null || name.trim().isEmpty) return;
+    final colId = await CollectionsService.instance
+        .createCollection(widget.uid, name);
+    await CollectionsService.instance
+        .addPostToCollection(widget.uid, colId, widget.post);
+    await _load();
+  }
+
+  Future<String?> _showNameDialog() async {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerLow,
+        title: Text('New Collection',
+            style: GoogleFonts.ebGaramond(fontSize: 20, color: AppColors.onSurface)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: GoogleFonts.literata(fontSize: 15),
+          decoration: InputDecoration(
+            hintText: 'Collection name…',
+            hintStyle: GoogleFonts.literata(
+                color: AppColors.outline, fontStyle: FontStyle.italic),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+            focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: const BorderSide(color: AppColors.primary)),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: GoogleFonts.inter(color: AppColors.outline)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: Text('Create', style: GoogleFonts.inter(
+                color: AppColors.primary, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.only(top: 12, bottom: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Container(
+            width: 36, height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.outline.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Title
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Text('Save to Collection',
+                    style: GoogleFonts.ebGaramond(
+                        fontSize: 20, fontWeight: FontWeight.w500)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                  color: AppColors.outline,
+                  iconSize: 20,
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            )
+          else ...[
+            // New collection button
+            ListTile(
+              leading: Container(
+                width: 52, height: 52,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: AppColors.outlineVariant,
+                    style: BorderStyle.solid,
+                  ),
+                ),
+                child: const Icon(Icons.add, color: AppColors.primary),
+              ),
+              title: Text('New Collection',
+                  style: GoogleFonts.inter(
+                      fontSize: 14, fontWeight: FontWeight.w600)),
+              onTap: _createNew,
+            ),
+            const Divider(height: 1, indent: 16, endIndent: 16),
+
+            // Existing collections
+            if (_collections.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'No collections yet.\nCreate one above!',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.literata(
+                      fontSize: 14,
+                      color: AppColors.outline,
+                      fontStyle: FontStyle.italic),
+                ),
+              )
+            else
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.45,
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _collections.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(height: 1, indent: 76, endIndent: 16),
+                  itemBuilder: (context, i) {
+                    final col = _collections[i];
+                    final saved = _savedIn.contains(col.id);
+                    return ListTile(
+                      leading: _CollectionThumb(url: col.coverImageUrl),
+                      title: Text(col.name,
+                          style: GoogleFonts.inter(
+                              fontSize: 14, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        '${col.postCount} post${col.postCount == 1 ? '' : 's'}',
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: AppColors.outline),
+                      ),
+                      trailing: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          saved ? Icons.check_circle : Icons.circle_outlined,
+                          key: ValueKey(saved),
+                          color: saved ? AppColors.primary : AppColors.outline,
+                          size: 24,
+                        ),
+                      ),
+                      onTap: () => _toggle(col),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectionThumb extends StatelessWidget {
+  final String? url;
+  const _CollectionThumb({this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(6),
+        image: url != null
+            ? DecorationImage(image: NetworkImage(url!), fit: BoxFit.cover)
+            : null,
+      ),
+      child: url == null
+          ? const Icon(Icons.collections_bookmark_outlined,
+              color: AppColors.outline, size: 22)
+          : null,
+    );
+  }
+}

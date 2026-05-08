@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/models/submission.dart';
+import 'package:romanticists_app/services/cloudinary_service.dart';
 
 // ─── Typed exception ──────────────────────────────────────────────────────────
 
@@ -154,17 +154,10 @@ class FirebaseService {
     }
   }
 
-  /// Uploads a cover image for a submission and returns the download URL.
+  /// Uploads a cover image for a submission via Cloudinary and returns the URL.
   Future<String> uploadSubmissionImage(String uid, File file) async {
     try {
-      final name = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('submissions')
-          .child(uid)
-          .child(name);
-      await ref.putFile(file);
-      return await ref.getDownloadURL();
+      return await CloudinaryService.instance.uploadSubmissionImage(uid, file);
     } catch (e) {
       throw FirebaseServiceException('Failed to upload image: $e');
     }
@@ -247,17 +240,10 @@ class FirebaseService {
 
   // ─── Profile Updates ────────────────────────────────────────────────────────
 
-  /// Uploads a profile picture to Firebase Storage and returns the download URL.
+  /// Uploads a profile picture via Cloudinary and returns the URL.
   Future<String> uploadProfilePicture(String uid, File file) async {
     try {
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('users')
-          .child(uid)
-          .child('profile_picture.jpg');
-      
-      await storageRef.putFile(file);
-      return await storageRef.getDownloadURL();
+      return await CloudinaryService.instance.uploadProfilePicture(uid, file);
     } catch (e) {
       throw FirebaseServiceException('Failed to upload image: $e');
     }
