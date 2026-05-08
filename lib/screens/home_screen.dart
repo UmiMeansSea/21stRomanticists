@@ -22,6 +22,14 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    
+    // Ensure data is loading
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<PostsProvider>();
+      if (provider.status == PostsStatus.initial) {
+        provider.refresh();
+      }
+    });
   }
 
   @override
@@ -52,31 +60,41 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: NestedScrollView(
-        controller: _scrollController,
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          _buildAppBar(innerBoxIsScrolled),
-          _buildCategoryBar(),
-        ],
-        body: _buildBody(),
-      ),
+    // Consumer wraps the Scaffold — NOT inside slivers[] (which requires RenderSliver)
+    return Consumer<PostsProvider>(
+      builder: (context, provider, _) {
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: RefreshIndicator(
+            onRefresh: provider.refresh,
+            displacement: 100,
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                _buildAppBar(),
+                _buildCategoryBar(provider),
+                ..._buildBodySlivers(provider),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   // ─── AppBar ──────────────────────────────────────────────────────────────
 
-  Widget _buildAppBar(bool innerScrolled) {
+  Widget _buildAppBar() {
     return SliverAppBar(
       pinned: true,
       floating: false,
       backgroundColor: AppColors.background,
-      elevation: innerScrolled ? 0.5 : 0,
+      elevation: 0,
       shadowColor: AppColors.outlineVariant.withValues(alpha: 0.3),
       leading: IconButton(
         icon: const Icon(Icons.menu, color: AppColors.primary),
-        onPressed: () {}, // Drawer — Day 6
+        onPressed: () {},
         tooltip: 'Menu',
       ),
       title: AnimatedSwitcher(
@@ -106,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         IconButton(
           icon: const Icon(Icons.settings_outlined, color: AppColors.primary),
-          onPressed: () {}, // Day 6
+          onPressed: () {},
           tooltip: 'Settings',
         ),
       ],
@@ -115,87 +133,94 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ─── Category filter bar ─────────────────────────────────────────────────
 
-  Widget _buildCategoryBar() {
+  Widget _buildCategoryBar(PostsProvider provider) {
+    if (provider.categories.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
     return SliverPersistentHeader(
       pinned: true,
       delegate: _CategoryBarDelegate(
-        child: Consumer<PostsProvider>(
-          builder: (context, provider, _) {
-            if (provider.categories.isEmpty) return const SizedBox.shrink();
-            return _CategoryTabRow(
-              categories: provider.categories.toList(),
-              selected: provider.selectedCategory,
-              onSelect: provider.selectCategory,
-            );
-          },
+        child: _CategoryTabRow(
+          categories: provider.categories.toList(),
+          selected: provider.selectedCategory,
+          onSelect: provider.selectCategory,
         ),
       ),
     );
   }
 
-  // ─── Body ────────────────────────────────────────────────────────────────
+  // ─── Body Slivers (returns a list — safe to spread into slivers:[]) ─────────
 
-  Widget _buildBody() {
-    return Consumer<PostsProvider>(
-      builder: (context, provider, _) {
-        // ── Initial loading ──
-        if (provider.status == PostsStatus.loading) {
-          return _SkeletonList();
-        }
+  List<Widget> _buildBodySlivers(PostsProvider provider) {
+    // ── Initial / loading ──
+    if (provider.status == PostsStatus.initial ||
+        provider.status == PostsStatus.loading) {
+      return [
+        const SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          sliver: _SkeletonSliver(),
+        ),
+      ];
+    }
 
-        // ── Error with no data ──
-        if (provider.status == PostsStatus.failure && provider.posts.isEmpty) {
-          return _ErrorView(
+    // ── Error with no data ──
+    if (provider.status == PostsStatus.failure && provider.posts.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _ErrorView(
             message: provider.errorMessage ?? 'Failed to load posts.',
             onRetry: provider.refresh,
-          );
-        }
+          ),
+        ),
+      ];
+    }
 
-        // ── Empty state ──
-        if (provider.posts.isEmpty) {
-          return _EmptyView(
+    // ── Empty state ──
+    if (provider.posts.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _EmptyView(
             query: provider.searchQuery,
             onClear: provider.clearSearch,
-          );
-        }
+          ),
+        ),
+      ];
+    }
 
-        // ── Posts list ──
-        return RefreshIndicator(
-          color: AppColors.primary,
-          backgroundColor: AppColors.background,
-          strokeWidth: 1.5,
-          onRefresh: provider.refresh,
-          child: ListView.separated(
-            padding: const EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 20,
-              bottom: 120,
-            ),
-            itemCount: provider.posts.length + 1, // +1 for footer
-            separatorBuilder: (_, i) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              // Footer: load-more indicator or end label
+    // ── Posts list ──
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 20,
+          bottom: 120,
+        ),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
               if (index == provider.posts.length) {
                 return _ListFooter(
                   isLoading: provider.isLoadingMore,
                   hasMore: provider.hasMore,
                 );
               }
-
               final post = provider.posts[index];
               final isFeatured = index == 0 && provider.searchQuery.isEmpty;
-
-              return PostCard(
-                post: post,
-                categories: provider.categories.toList(),
-                featured: isFeatured,
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: PostCard(
+                  post: post,
+                  categories: provider.categories.toList(),
+                  featured: isFeatured,
+                ),
               );
             },
+            childCount: provider.posts.length + 1,
           ),
-        );
-      },
-    );
+        ),
+      ),
+    ];
   }
 }
 
@@ -327,16 +352,21 @@ class _ListFooter extends StatelessWidget {
   }
 }
 
-// ─── Skeleton loading list ────────────────────────────────────────────────────
+// ─── Skeleton loading sliver ────────────────────────────────────────────────
 
-class _SkeletonList extends StatelessWidget {
+class _SkeletonSliver extends StatelessWidget {
+  const _SkeletonSliver();
+
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      itemCount: 6,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (_, i) => PostCardSkeleton(featured: i == 0),
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, i) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: PostCardSkeleton(featured: i == 0),
+        ),
+        childCount: 6,
+      ),
     );
   }
 }

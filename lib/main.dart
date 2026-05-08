@@ -19,7 +19,7 @@ import 'package:romanticists_app/widgets/app_shell.dart';
 // google-services.json / GoogleService-Info.plist to the project.
 // Uncomment the lines below after running `flutterfire configure`.
 //
-// import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core/firebase_core.dart';
 // import 'firebase_options.dart';
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -42,10 +42,19 @@ void main() async {
     ),
   );
 
-  // ── Firebase init (uncomment on Day 2) ──
-  // await Firebase.initializeApp(
-  //   options: DefaultFirebaseOptions.currentPlatform,
-  // );
+  // ── Firebase init — guarded so a slow/failing init never blocks the app ──
+  try {
+    await Firebase.initializeApp().timeout(
+      const Duration(seconds: 8),
+      onTimeout: () => throw Exception('Firebase init timed out'),
+    );
+    debugPrint('[Firebase] initialized successfully');
+  } catch (e) {
+    // Firebase failed or timed out — the app still loads.
+    // Firestore calls in FirebaseService will throw FirebaseServiceException
+    // which is handled gracefully in the UI.
+    debugPrint('[Firebase] init failed: $e');
+  }
 
   runApp(const RomanticistsApp());
 }

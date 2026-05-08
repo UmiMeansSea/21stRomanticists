@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "206445266291",
+    "project_id": "stromanticists",
+    "storage_bucket": "stromanticists.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:206445266291:android:0a183b2a68aa072f623106",
+        "android_client_info": {
+          "package_name": "com.example.romanticists_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4fb_dxIXG0TZZWJ4RSXQxJrYUsqr0WDE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

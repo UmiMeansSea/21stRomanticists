@@ -21,8 +21,9 @@ class WpApiService {
 
   static final WpApiService instance = WpApiService._();
 
+  // WordPress.com hosted blogs use the public REST API, not /wp-json/wp/v2
   static const String _baseUrl =
-      'https://21stromanticists.wordpress.com/wp-json/wp/v2';
+      'https://public-api.wordpress.com/wp/v2/sites/21stromanticists.wordpress.com';
 
   static const Duration _timeout = Duration(seconds: 15);
 
