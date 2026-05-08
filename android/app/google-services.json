@@ -12,7 +12,20 @@
           "package_name": "com.example.romanticists_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "206445266291-qtb1cbqv7i7hem8sds3vbk264881q2b8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.romanticists_app",
+            "certificate_hash": "cd2a356ee2ba1ec03fafe2bbb5744953c50ae159"
+          }
+        },
+        {
+          "client_id": "206445266291-av3tpl5sfck988lenpehgo3ki255746i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyC4fb_dxIXG0TZZWJ4RSXQxJrYUsqr0WDE"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "206445266291-av3tpl5sfck988lenpehgo3ki255746i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
