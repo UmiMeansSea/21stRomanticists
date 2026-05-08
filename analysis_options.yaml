@@ -1,0 +1,12 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    prefer_const_constructors: false
+    prefer_const_declarations: true
+    prefer_final_fields: true
+    avoid_unnecessary_containers: true
+    use_key_in_widget_constructors: true
+    sized_box_for_whitespace: true
+    prefer_single_quotes: true
+    always_use_package_imports: true
