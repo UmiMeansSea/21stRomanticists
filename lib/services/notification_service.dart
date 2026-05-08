@@ -141,4 +141,26 @@ class NotificationService {
       ),
     );
   }
+
+  // ─── Topics ───────────────────────────────────────────────────────────────
+
+  /// Subscribes to a topic (e.g. "author_123") to receive alerts when they post.
+  Future<void> subscribeToTopic(String topic) async {
+    try {
+      await _messaging.subscribeToTopic(topic);
+      debugPrint('[FCM] Subscribed to topic: $topic');
+    } catch (e) {
+      debugPrint('[FCM] Failed to subscribe to topic: $e');
+    }
+  }
+
+  /// Unsubscribes from a topic.
+  Future<void> unsubscribeFromTopic(String topic) async {
+    try {
+      await _messaging.unsubscribeFromTopic(topic);
+      debugPrint('[FCM] Unsubscribed from topic: $topic');
+    } catch (e) {
+      debugPrint('[FCM] Failed to unsubscribe from topic: $e');
+    }
+  }
 }

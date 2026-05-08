@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/models/submission.dart';
 
@@ -28,6 +31,109 @@ class FirebaseService {
   static const String _submissionsCol = 'submissions';
   static const String _usersCol = 'users';
   static const String _bookmarksSub = 'bookmarks';
+  static const String _followingSub = 'following';
+  static const String _followersSub = 'followers';
+
+  // ─── Subscriptions ──────────────────────────────────────────────────────────
+
+  /// Follows an author (could be a WP author ID or Firebase UID).
+  Future<void> subscribe(String followerUid, String targetId, {required String targetName}) async {
+    try {
+      final batch = _db.batch();
+
+      // Add to follower's following list
+      final followingRef = _db
+          .collection(_usersCol)
+          .doc(followerUid)
+          .collection(_followingSub)
+          .doc(targetId);
+      
+      batch.set(followingRef, {
+        'targetId': targetId,
+        'targetName': targetName,
+        'subscribedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Add to target's followers list
+      final followersRef = _db
+          .collection(_usersCol)
+          .doc(targetId)
+          .collection(_followersSub)
+          .doc(followerUid);
+      
+      batch.set(followersRef, {
+        'followerUid': followerUid,
+        'subscribedAt': FieldValue.serverTimestamp(),
+      });
+
+      await batch.commit();
+
+      // Notify the target that someone subscribed
+      final followerInfo = await _db.collection(_usersCol).doc(followerUid).get();
+      final followerName = followerInfo.data()?['displayName'] as String? ?? 'A reader';
+      await sendNotification(
+        targetUid: targetId,
+        type: 'subscribe',
+        actorName: followerName,
+      );
+    } catch (e) {
+      throw FirebaseServiceException('Failed to subscribe: $e');
+    }
+  }
+
+  /// Unfollows an author.
+  Future<void> unsubscribe(String followerUid, String targetId) async {
+    try {
+      final batch = _db.batch();
+
+      final followingRef = _db
+          .collection(_usersCol)
+          .doc(followerUid)
+          .collection(_followingSub)
+          .doc(targetId);
+      batch.delete(followingRef);
+
+      final followersRef = _db
+          .collection(_usersCol)
+          .doc(targetId)
+          .collection(_followersSub)
+          .doc(followerUid);
+      batch.delete(followersRef);
+
+      await batch.commit();
+    } catch (e) {
+      throw FirebaseServiceException('Failed to unsubscribe: $e');
+    }
+  }
+
+  /// Checks if [followerUid] is subscribed to [targetId].
+  Future<bool> isSubscribed(String followerUid, String targetId) async {
+    try {
+      final doc = await _db
+          .collection(_usersCol)
+          .doc(followerUid)
+          .collection(_followingSub)
+          .doc(targetId)
+          .get();
+      return doc.exists;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Returns the list of IDs this user is following.
+  Future<List<String>> getFollowingIds(String uid) async {
+    try {
+      final snapshot = await _db
+          .collection(_usersCol)
+          .doc(uid)
+          .collection(_followingSub)
+          .get();
+      return snapshot.docs.map((doc) => doc.id).toList();
+    } catch (e) {
+      return [];
+    }
+  }
 
   // ─── Submissions ──────────────────────────────────────────────────────────
 
@@ -48,7 +154,6 @@ class FirebaseService {
   /// Returns all submissions belonging to [userId], ordered newest-first.
   Future<List<Submission>> getUserSubmissions(String userId) async {
     try {
-      // Remove orderBy here to avoid "index required" error
       final snapshot = await _db
           .collection(_submissionsCol)
           .where('userId', isEqualTo: userId)
@@ -58,9 +163,7 @@ class FirebaseService {
           .map((doc) => Submission.fromJson(doc.data(), id: doc.id))
           .toList();
 
-      // Sort in-memory (newest first)
       list.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
-
       return list;
     } on FirebaseException catch (e) {
       throw FirebaseServiceException(
@@ -69,6 +172,104 @@ class FirebaseService {
       );
     } catch (e) {
       throw FirebaseServiceException('Unexpected error: $e');
+    }
+  }
+
+  /// Returns public info for a user (displayName, photoURL, etc).
+  Future<Map<String, dynamic>?> getUserPublicInfo(String uid) async {
+    try {
+      final doc = await _db.collection(_usersCol).doc(uid).get();
+      return doc.data();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<int> getFollowerCount(String uid) async {
+    final snap = await _db.collection(_usersCol).doc(uid).collection(_followersSub).count().get();
+    return snap.count ?? 0;
+  }
+
+  Future<int> getFollowingCount(String uid) async {
+    final snap = await _db.collection(_usersCol).doc(uid).collection(_followingSub).count().get();
+    return snap.count ?? 0;
+  }
+
+  // ─── Profile Updates ────────────────────────────────────────────────────────
+
+  /// Uploads a profile picture to Firebase Storage and returns the download URL.
+  Future<String> uploadProfilePicture(String uid, File file) async {
+    try {
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('users')
+          .child(uid)
+          .child('profile_picture.jpg');
+      
+      await storageRef.putFile(file);
+      return await storageRef.getDownloadURL();
+    } catch (e) {
+      throw FirebaseServiceException('Failed to upload image: $e');
+    }
+  }
+
+  /// Updates the user's Firestore document with new profile data.
+  Future<void> updateUserProfile(String uid, Map<String, dynamic> data) async {
+    try {
+      await _db.collection(_usersCol).doc(uid).set(
+        {
+          ...data,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      throw FirebaseServiceException('Failed to update profile: $e');
+    }
+  }
+
+  /// Checks if a username is already taken by someone else.
+  Future<bool> isUsernameAvailable(String username, String currentUid) async {
+    try {
+      final snapshot = await _db
+          .collection(_usersCol)
+          .where('username', isEqualTo: username.trim().toLowerCase())
+          .limit(1)
+          .get();
+      
+      if (snapshot.docs.isEmpty) return true;
+      // It's available if the only user found is the current one
+      return snapshot.docs.first.id == currentUid;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── Notifications ────────────────────────────────────────────────────────
+
+  static const _notificationsSub = 'notifications';
+
+  /// Writes a notification document to a target user's notifications subcollection.
+  Future<void> sendNotification({
+    required String targetUid,
+    required String type,       // 'subscribe' | 'like' | 'new_post'
+    required String actorName,
+    String? postTitle,
+  }) async {
+    try {
+      await _db
+          .collection(_usersCol)
+          .doc(targetUid)
+          .collection(_notificationsSub)
+          .add({
+        'type': type,
+        'actorName': actorName,
+        if (postTitle != null) 'postTitle': postTitle,
+        'createdAt': FieldValue.serverTimestamp(),
+        'read': false,
+      });
+    } catch (_) {
+      // Notifications are best-effort — never block the main action
     }
   }
 
@@ -88,6 +289,7 @@ class FirebaseService {
         final d = doc.data();
         return Post(
           id: d['postId'] as int,
+          authorId: d['authorId'] as int? ?? 0,
           title: d['title'] as String? ?? '',
           content: '',
           excerpt: d['excerpt'] as String? ?? '',

@@ -1,6 +1,7 @@
 /// Represents a WordPress post returned by the REST API.
 class Post {
   final int id;
+  final int authorId;
   final String title;
   final String content;
   final String excerpt;
@@ -13,6 +14,7 @@ class Post {
 
   const Post({
     required this.id,
+    required this.authorId,
     required this.title,
     required this.content,
     required this.excerpt,
@@ -66,6 +68,7 @@ class Post {
 
     return Post(
       id: json['id'] as int,
+      authorId: json['author'] as int? ?? 0,
       title: (json['title'] as Map<String, dynamic>)['rendered'] as String? ?? '',
       content: (json['content'] as Map<String, dynamic>)['rendered'] as String? ?? '',
       excerpt: (json['excerpt'] as Map<String, dynamic>)['rendered'] as String? ?? '',
@@ -80,6 +83,7 @@ class Post {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'authorId': authorId,
         'title': {'rendered': title},
         'content': {'rendered': content},
         'excerpt': {'rendered': excerpt},
@@ -93,6 +97,7 @@ class Post {
 
   Post copyWith({
     int? id,
+    int? authorId,
     String? title,
     String? content,
     String? excerpt,
@@ -105,6 +110,7 @@ class Post {
   }) {
     return Post(
       id: id ?? this.id,
+      authorId: authorId ?? this.authorId,
       title: title ?? this.title,
       content: content ?? this.content,
       excerpt: excerpt ?? this.excerpt,

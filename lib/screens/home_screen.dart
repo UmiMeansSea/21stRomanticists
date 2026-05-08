@@ -7,6 +7,9 @@ import 'package:romanticists_app/models/category.dart';
 import 'package:romanticists_app/widgets/post_card.dart';
 import 'package:romanticists_app/app_theme.dart';
 
+import 'package:romanticists_app/services/firebase_service.dart';
+import 'package:romanticists_app/providers/auth_provider.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -26,11 +29,22 @@ class _HomeScreenState extends State<HomeScreen> {
     
     // Ensure data is loading
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<PostsProvider>();
-      if (provider.status == PostsStatus.initial) {
-        provider.refresh();
+      final posts = context.read<PostsProvider>();
+      if (posts.status == PostsStatus.initial) {
+        posts.refresh();
       }
+      _syncFollowing();
     });
+  }
+
+  Future<void> _syncFollowing() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user != null) {
+      final following = await FirebaseService.instance.getFollowingIds(auth.user!.uid);
+      if (mounted) {
+        context.read<PostsProvider>().updateFollowingIds(following);
+      }
+    }
   }
 
   @override

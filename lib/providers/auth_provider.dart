@@ -134,6 +134,23 @@ class AuthProvider extends ChangeNotifier {
     ]);
   }
 
+  /// Updates the user's profile in FirebaseAuth.
+  Future<void> updateProfile({String? displayName, String? photoURL}) async {
+    final u = _auth.currentUser;
+    if (u == null) return;
+    
+    await u.updateDisplayName(displayName);
+    await u.updatePhotoURL(photoURL);
+    await u.reload();
+    notifyListeners();
+  }
+
+  /// Force-reloads the current user from Firebase.
+  Future<void> reloadUser() async {
+    await _auth.currentUser?.reload();
+    notifyListeners();
+  }
+
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
   void clearError() {

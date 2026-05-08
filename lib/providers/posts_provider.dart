@@ -23,6 +23,7 @@ class PostsProvider extends ChangeNotifier {
   int _currentPage = 1;
   int _totalPages = 1;
   String _searchQuery = '';
+  List<String> _followingIds = [];
 
   // ─── Getters ───────────────────────────────────────────────────────────────
   List<Post> get posts => List.unmodifiable(_posts);
@@ -34,6 +35,7 @@ class PostsProvider extends ChangeNotifier {
   bool get isLoading => _status == PostsStatus.loading;
   bool get isLoadingMore => _status == PostsStatus.loadingMore;
   String get searchQuery => _searchQuery;
+  List<String> get followingIds => _followingIds;
 
   // ─── Initialization ────────────────────────────────────────────────────────
   Future<void> _init() async {
@@ -86,6 +88,18 @@ class PostsProvider extends ChangeNotifier {
       );
 
       _posts = [..._posts, ...results];
+
+      // Prioritize posts from followed authors
+      if (_followingIds.isNotEmpty && _searchQuery.isEmpty) {
+        _posts.sort((a, b) {
+          final aFollowed = _followingIds.contains(a.authorId.toString());
+          final bFollowed = _followingIds.contains(b.authorId.toString());
+          if (aFollowed && !bFollowed) return -1;
+          if (!aFollowed && bFollowed) return 1;
+          return b.publishedAt.compareTo(a.publishedAt); // secondary sort by date
+        });
+      }
+
       _status = PostsStatus.success;
       _errorMessage = null;
     } on WpApiException catch (e) {
@@ -126,5 +140,20 @@ class PostsProvider extends ChangeNotifier {
     if (_searchQuery.isEmpty) return;
     _searchQuery = '';
     _loadPosts(reset: true);
+  }
+
+  void updateFollowingIds(List<String> ids) {
+    _followingIds = ids;
+    if (_posts.isNotEmpty) {
+      // Re-sort current posts
+      _posts.sort((a, b) {
+        final aFollowed = _followingIds.contains(a.authorId.toString());
+        final bFollowed = _followingIds.contains(b.authorId.toString());
+        if (aFollowed && !bFollowed) return -1;
+        if (!aFollowed && bFollowed) return 1;
+        return b.publishedAt.compareTo(a.publishedAt);
+      });
+      notifyListeners();
+    }
   }
 }

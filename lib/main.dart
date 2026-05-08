@@ -9,12 +9,15 @@ import 'package:romanticists_app/providers/bookmarks_provider.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/screens/bookmarks_screen.dart';
 import 'package:romanticists_app/screens/home_screen.dart';
+import 'package:romanticists_app/screens/notifications_screen.dart';
 import 'package:romanticists_app/screens/post_detail.dart';
 import 'package:romanticists_app/screens/category_screen.dart';
 import 'package:romanticists_app/screens/login_screen.dart';
 import 'package:romanticists_app/screens/settings_screen.dart';
 import 'package:romanticists_app/screens/submit_screen.dart';
 import 'package:romanticists_app/screens/profile_screen.dart';
+import 'package:romanticists_app/screens/public_profile_screen.dart';
+import 'package:romanticists_app/screens/edit_profile_screen.dart';
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/services/notification_service.dart';
 import 'package:romanticists_app/widgets/app_shell.dart';
@@ -106,10 +109,9 @@ final GoRouter _router = GoRouter(
           ),
         ),
         GoRoute(
-          path: '/read',
+          path: '/notifications',
           pageBuilder: (context, state) => const NoTransitionPage(
-            // "Read" tab = same feed, could be a curated list later.
-            child: HomeScreen(),
+            child: NotificationsScreen(),
           ),
         ),
         GoRoute(
@@ -161,6 +163,20 @@ final GoRouter _router = GoRouter(
           categoryName: categoryName,
         );
       },
+    ),
+
+    GoRoute(
+      path: '/user/:id',
+      builder: (context, state) {
+        final userId = state.pathParameters['id'] ?? '';
+        final name = state.uri.queryParameters['name'];
+        return PublicProfileScreen(userId: userId, initialName: name);
+      },
+    ),
+
+    GoRoute(
+      path: '/edit-profile',
+      builder: (context, state) => const EditProfileScreen(),
     ),
 
     GoRoute(

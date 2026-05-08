@@ -88,17 +88,12 @@ class _FeaturedCard extends StatelessWidget {
                   const Divider(height: 1),
                   const SizedBox(height: 14),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Keep Reading',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                          color: AppColors.onSurface,
-                        ),
+                      _AuthorRow(
+                        authorName: post.author,
+                        authorId: post.authorId.toString(),
                       ),
+                      const Spacer(),
                       _BookmarkButton(post: post),
                     ],
                   ),
@@ -171,17 +166,17 @@ class _StandardCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      post.cleanExcerpt,
-                      style: Theme.of(context).textTheme.bodySmall,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: _BookmarkButton(post: post, size: 18),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _AuthorRow(
+                          authorName: post.author,
+                          authorId: post.authorId.toString(),
+                          small: true,
+                        ),
+                        const Spacer(),
+                        _BookmarkButton(post: post, size: 18),
+                      ],
                     ),
                   ],
                 ),
@@ -284,6 +279,51 @@ class _DateChip extends StatelessWidget {
         letterSpacing: 0.5,
         color: AppColors.secondary,
         fontStyle: FontStyle.italic,
+      ),
+    );
+  }
+}
+
+class _AuthorRow extends StatelessWidget {
+  final String authorName;
+  final String authorId;
+  final bool small;
+
+  const _AuthorRow({
+    required this.authorName,
+    required this.authorId,
+    this.small = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push('/user/$authorId?name=$authorName'),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: small ? 10 : 12,
+            backgroundColor: AppColors.surfaceContainerHigh,
+            child: Text(
+              authorName[0].toUpperCase(),
+              style: GoogleFonts.ebGaramond(
+                fontSize: small ? 10 : 12,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            authorName,
+            style: GoogleFonts.inter(
+              fontSize: small ? 11 : 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.onSurface,
+            ),
+          ),
+        ],
       ),
     );
   }
