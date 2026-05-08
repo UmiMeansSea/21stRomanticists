@@ -13,13 +13,15 @@ class AppShell extends StatelessWidget {
     _TabItem(icon: Icons.home_outlined, activeIcon: Icons.home, label: 'Home', path: '/'),
     _TabItem(icon: Icons.auto_stories_outlined, activeIcon: Icons.auto_stories, label: 'Read', path: '/read'),
     _TabItem(icon: Icons.edit_note_outlined, activeIcon: Icons.edit_note, label: 'Write', path: '/write'),
+    _TabItem(icon: Icons.bookmark_border_outlined, activeIcon: Icons.bookmark, label: 'Saved', path: '/bookmarks'),
     _TabItem(icon: Icons.person_outline, activeIcon: Icons.person, label: 'Profile', path: '/profile'),
   ];
 
   int _currentIndex(BuildContext context) {
     final loc = GoRouterState.of(context).matchedLocation;
     if (loc.startsWith('/write')) return 2;
-    if (loc.startsWith('/profile')) return 3;
+    if (loc.startsWith('/bookmarks')) return 3;
+    if (loc.startsWith('/profile')) return 4;
     if (loc.startsWith('/read')) return 1;
     return 0;
   }

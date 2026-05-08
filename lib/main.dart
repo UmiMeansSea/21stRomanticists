@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
+import 'package:romanticists_app/providers/bookmarks_provider.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
+import 'package:romanticists_app/screens/bookmarks_screen.dart';
 import 'package:romanticists_app/screens/home_screen.dart';
 import 'package:romanticists_app/screens/post_detail.dart';
 import 'package:romanticists_app/screens/category_screen.dart';
@@ -71,7 +73,10 @@ class RomanticistsApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => PostsProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        // Day 5 — add BookmarksProvider here.
+        ChangeNotifierProxyProvider<AuthProvider, BookmarksProvider>(
+          create: (ctx) => BookmarksProvider(ctx.read<AuthProvider>()),
+          update: (ctx, auth, prev) => prev ?? BookmarksProvider(auth),
+        ),
       ],
       child: MaterialApp.router(
         title: 'The 21st Romanticists',
@@ -111,6 +116,12 @@ final GoRouter _router = GoRouter(
           path: '/write',
           pageBuilder: (context, state) => const NoTransitionPage(
             child: SubmitScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/bookmarks',
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: BookmarksScreen(),
           ),
         ),
         GoRoute(

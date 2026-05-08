@@ -3,8 +3,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/models/category.dart';
+import 'package:romanticists_app/providers/auth_provider.dart';
+import 'package:romanticists_app/providers/bookmarks_provider.dart';
 import 'package:romanticists_app/app_theme.dart';
 
 /// Editorial post card — mirrors the Stitch design's surface-container-low
@@ -96,7 +99,7 @@ class _FeaturedCard extends StatelessWidget {
                           color: AppColors.onSurface,
                         ),
                       ),
-                      const Icon(Icons.bookmark_border_outlined, size: 20),
+                      _BookmarkButton(post: post),
                     ],
                   ),
                 ],
@@ -174,6 +177,11 @@ class _StandardCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodySmall,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _BookmarkButton(post: post, size: 18),
                     ),
                   ],
                 ),
@@ -277,6 +285,60 @@ class _DateChip extends StatelessWidget {
         color: AppColors.secondary,
         fontStyle: FontStyle.italic,
       ),
+    );
+  }
+}
+
+// ─── Bookmark button ─────────────────────────────────────────────────────────
+
+class _BookmarkButton extends StatelessWidget {
+  final Post post;
+  final double size;
+  const _BookmarkButton({required this.post, this.size = 20});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<BookmarksProvider>(
+      builder: (context, bm, _) {
+        final saved = bm.isBookmarked(post.id);
+        return GestureDetector(
+          onTap: () {
+            final auth = context.read<AuthProvider>();
+            if (!auth.isAuthenticated) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Sign in to save posts.',
+                    style: GoogleFonts.literata(color: Colors.white),
+                  ),
+                  backgroundColor: AppColors.primary,
+                  behavior: SnackBarBehavior.floating,
+                  action: SnackBarAction(
+                    label: 'Sign In',
+                    textColor: Colors.white70,
+                    onPressed: () => context.push('/login'),
+                  ),
+                ),
+              );
+              return;
+            }
+            bm.toggle(post);
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                saved ? Icons.bookmark : Icons.bookmark_border_outlined,
+                key: ValueKey(saved),
+                size: size,
+                color: saved ? AppColors.primary : AppColors.onSurfaceVariant,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
