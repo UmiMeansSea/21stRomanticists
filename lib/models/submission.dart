@@ -52,6 +52,8 @@ class Submission {
   final bool isAnonymous;
   final DateTime submittedAt;
   final SubmissionStatus status;
+  final List<String> tags;       // up to 3 user-defined tags
+  final String? imageUrl;        // optional cover image
 
   const Submission({
     this.id,
@@ -63,6 +65,8 @@ class Submission {
     required this.isAnonymous,
     required this.submittedAt,
     this.status = SubmissionStatus.pending,
+    this.tags = const [],
+    this.imageUrl,
   });
 
   // ─── Firestore ─────────────────────────────────────────────────────────────
@@ -85,6 +89,8 @@ class Submission {
       status: SubmissionStatusExt.fromString(
         json['status'] as String? ?? 'pending',
       ),
+      tags: ((json['tags'] as List<dynamic>?) ?? []).cast<String>(),
+      imageUrl: json['imageUrl'] as String?,
     );
   }
 
@@ -97,6 +103,8 @@ class Submission {
         'isAnonymous': isAnonymous,
         'submittedAt': Timestamp.fromDate(submittedAt),
         'status': status.value,
+        'tags': tags,
+        if (imageUrl != null) 'imageUrl': imageUrl,
       };
 
   Submission copyWith({
@@ -109,6 +117,8 @@ class Submission {
     bool? isAnonymous,
     DateTime? submittedAt,
     SubmissionStatus? status,
+    List<String>? tags,
+    String? imageUrl,
   }) {
     return Submission(
       id: id ?? this.id,
@@ -120,6 +130,8 @@ class Submission {
       isAnonymous: isAnonymous ?? this.isAnonymous,
       submittedAt: submittedAt ?? this.submittedAt,
       status: status ?? this.status,
+      tags: tags ?? this.tags,
+      imageUrl: imageUrl ?? this.imageUrl,
     );
   }
 }

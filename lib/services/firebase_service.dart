@@ -138,9 +138,12 @@ class FirebaseService {
   // ─── Submissions ──────────────────────────────────────────────────────────
 
   /// Saves a [Submission] to the Firestore "submissions" collection.
+  /// Posts are published immediately with status = approved.
   Future<void> submitWork(Submission submission) async {
     try {
-      await _db.collection(_submissionsCol).add(submission.toJson());
+      // Always publish instantly — no review queue
+      final published = submission.copyWith(status: SubmissionStatus.approved);
+      await _db.collection(_submissionsCol).add(published.toJson());
     } on FirebaseException catch (e) {
       throw FirebaseServiceException(
         e.message ?? 'Failed to submit work.',
@@ -148,6 +151,22 @@ class FirebaseService {
       );
     } catch (e) {
       throw FirebaseServiceException('Unexpected error: $e');
+    }
+  }
+
+  /// Uploads a cover image for a submission and returns the download URL.
+  Future<String> uploadSubmissionImage(String uid, File file) async {
+    try {
+      final name = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('submissions')
+          .child(uid)
+          .child(name);
+      await ref.putFile(file);
+      return await ref.getDownloadURL();
+    } catch (e) {
+      throw FirebaseServiceException('Failed to upload image: $e');
     }
   }
 
