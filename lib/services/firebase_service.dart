@@ -50,6 +50,28 @@ class FirebaseService {
     }
   }
 
+  /// Returns all submissions belonging to [userId], ordered newest-first.
+  Future<List<Submission>> getUserSubmissions(String userId) async {
+    try {
+      final snapshot = await _db
+          .collection(_submissionsCol)
+          .where('userId', isEqualTo: userId)
+          .orderBy('submittedAt', descending: true)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => Submission.fromJson(doc.data(), id: doc.id))
+          .toList();
+    } on FirebaseException catch (e) {
+      throw FirebaseServiceException(
+        e.message ?? 'Failed to fetch submissions.',
+        code: e.code,
+      );
+    } catch (e) {
+      throw FirebaseServiceException('Unexpected error: $e');
+    }
+  }
+
   // ─── Bookmarks ────────────────────────────────────────────────────────────
 
   /// Returns the list of bookmarked post IDs (as strings) for [uid].

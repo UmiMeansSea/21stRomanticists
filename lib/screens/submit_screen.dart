@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/models/submission.dart';
+import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 
 /// Full submission form for poems and prose.
@@ -35,9 +38,13 @@ class _SubmitScreenState extends State<SubmitScreen> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    // Attach the current user's UID (null if somehow unauthenticated)
+    final uid = context.read<AuthProvider>().user?.uid;
+
     setState(() => _submitting = true);
 
     final submission = Submission(
+      userId: uid,
       authorName: _isAnonymous ? 'Anonymous' : _authorController.text.trim(),
       title: _titleController.text.trim(),
       category: _category,

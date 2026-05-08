@@ -44,6 +44,7 @@ extension SubmissionStatusExt on SubmissionStatus {
 /// A user-submitted piece of writing stored in Firestore.
 class Submission {
   final String? id;
+  final String? userId;          // Firebase Auth UID — null for anonymous
   final String authorName;
   final String title;
   final SubmissionCategory category;
@@ -54,6 +55,7 @@ class Submission {
 
   const Submission({
     this.id,
+    this.userId,
     required this.authorName,
     required this.title,
     required this.category,
@@ -68,6 +70,7 @@ class Submission {
   factory Submission.fromJson(Map<String, dynamic> json, {String? id}) {
     return Submission(
       id: id,
+      userId: json['userId'] as String?,
       authorName: json['authorName'] as String? ?? 'Anonymous',
       title: json['title'] as String? ?? '',
       category: SubmissionCategoryExt.fromString(
@@ -86,6 +89,7 @@ class Submission {
   }
 
   Map<String, dynamic> toJson() => {
+        if (userId != null) 'userId': userId,
         'authorName': isAnonymous ? 'Anonymous' : authorName,
         'title': title,
         'category': category.name,
@@ -97,6 +101,7 @@ class Submission {
 
   Submission copyWith({
     String? id,
+    String? userId,
     String? authorName,
     String? title,
     SubmissionCategory? category,
@@ -107,6 +112,7 @@ class Submission {
   }) {
     return Submission(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       authorName: authorName ?? this.authorName,
       title: title ?? this.title,
       category: category ?? this.category,

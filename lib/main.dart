@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:romanticists_app/app_theme.dart';
+import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/screens/home_screen.dart';
 import 'package:romanticists_app/screens/post_detail.dart';
@@ -69,7 +70,7 @@ class RomanticistsApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => PostsProvider()),
-        // Day 3 — add AuthProvider here.
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
         // Day 5 — add BookmarksProvider here.
       ],
       child: MaterialApp.router(
