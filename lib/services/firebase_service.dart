@@ -48,15 +48,20 @@ class FirebaseService {
   /// Returns all submissions belonging to [userId], ordered newest-first.
   Future<List<Submission>> getUserSubmissions(String userId) async {
     try {
+      // Remove orderBy here to avoid "index required" error
       final snapshot = await _db
           .collection(_submissionsCol)
           .where('userId', isEqualTo: userId)
-          .orderBy('submittedAt', descending: true)
           .get();
 
-      return snapshot.docs
+      final list = snapshot.docs
           .map((doc) => Submission.fromJson(doc.data(), id: doc.id))
           .toList();
+
+      // Sort in-memory (newest first)
+      list.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+
+      return list;
     } on FirebaseException catch (e) {
       throw FirebaseServiceException(
         e.message ?? 'Failed to fetch submissions.',
