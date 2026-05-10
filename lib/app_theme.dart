@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -25,199 +26,186 @@ class AppColors {
 
   // Forest green accent from brief
   static const accent = Color(0xFF4A7C59);
+
+  // Modern Romanticist (Dark Palette)
+  static const romanticSurface = Color(0xFF1A1816);
+  static const romanticSurfaceContainer = Color(0xFF252320);
+  static const romanticSurfaceBright = Color(0xFF33302C);
+  static const romanticOnSurface = Color(0xFFFBF9F3);
+  static const romanticOnSurfaceVariant = Color(0xFFDBDAD4);
+  static const romanticPrimary = Color(0xFFC1A68D);
+  static const romanticOnPrimary = Color(0xFF1A1816);
+
+  // Alias for backward compatibility during transition
+  static const surfaceBright = Color(0xFF33302C);
 }
 
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get light {
-    final base = ThemeData.light(useMaterial3: true);
+  static ThemeData get dark {
+    final base = ThemeData.dark(useMaterial3: true);
 
     return base.copyWith(
-      scaffoldBackgroundColor: AppColors.background,
-      colorScheme: const ColorScheme.light(
-        primary: AppColors.primary,
-        onPrimary: AppColors.onPrimary,
-        secondary: AppColors.secondary,
-        onSecondary: AppColors.onSecondary,
-        surface: AppColors.surface,
-        onSurface: AppColors.onSurface,
+      scaffoldBackgroundColor: AppColors.romanticSurface,
+      colorScheme: const ColorScheme.dark(
+        primary: AppColors.romanticPrimary,
+        onPrimary: AppColors.romanticSurface,
+        secondary: AppColors.romanticPrimary,
+        onSecondary: AppColors.romanticSurface,
+        surface: AppColors.romanticSurface,
+        onSurface: AppColors.romanticOnSurface,
+        surfaceContainer: AppColors.romanticSurfaceContainer,
+        onSurfaceVariant: AppColors.romanticOnSurfaceVariant,
         error: AppColors.error,
         outline: AppColors.outline,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.background,
-        foregroundColor: AppColors.primary,
+        backgroundColor: AppColors.romanticSurface,
+        foregroundColor: AppColors.romanticOnSurface,
         elevation: 0,
-        scrolledUnderElevation: 0.5,
-        shadowColor: AppColors.outlineVariant.withValues(alpha: 0.2),
+        scrolledUnderElevation: 0,
         centerTitle: true,
         titleTextStyle: GoogleFonts.ebGaramond(
-          fontSize: 24,
+          fontSize: 22,
           fontWeight: FontWeight.w500,
-          color: AppColors.primary,
+          color: AppColors.romanticOnSurface,
           letterSpacing: -0.3,
         ),
+        iconTheme: const IconThemeData(color: AppColors.romanticOnSurface),
       ),
-      textTheme: _buildTextTheme(),
+      textTheme: _buildTextTheme(isDark: true),
       cardTheme: CardThemeData(
-        color: AppColors.surfaceContainerLow,
+        color: AppColors.romanticSurfaceContainer,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(2),
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: AppColors.romanticOnSurface.withValues(alpha: 0.1),
+            width: 0.5,
+          ),
         ),
         margin: EdgeInsets.zero,
       ),
-      dividerTheme: const DividerThemeData(
-        color: AppColors.outlineVariant,
+      dividerTheme: DividerThemeData(
+        color: AppColors.romanticOnSurface.withValues(alpha: 0.1),
         space: 1,
-        thickness: 0.4,
+        thickness: 0.5,
       ),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(2),
-          borderSide: const BorderSide(color: AppColors.outlineVariant),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: AppColors.romanticOnSurface.withValues(alpha: 0.2)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(2),
-          borderSide: const BorderSide(color: AppColors.outlineVariant),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: AppColors.romanticOnSurface.withValues(alpha: 0.2)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(2),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.romanticPrimary, width: 1.5),
         ),
-        fillColor: AppColors.surfaceContainerLow,
+        fillColor: AppColors.romanticSurfaceContainer,
         filled: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         hintStyle: GoogleFonts.literata(
           fontSize: 16,
-          color: AppColors.onSurfaceVariant,
+          color: AppColors.romanticOnSurfaceVariant,
         ),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: AppColors.surfaceContainerLow,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.onSurfaceVariant,
-        selectedLabelStyle: GoogleFonts.inter(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
-        unselectedLabelStyle: GoogleFonts.inter(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
+        backgroundColor: AppColors.romanticSurface,
+        selectedItemColor: AppColors.romanticPrimary,
+        unselectedItemColor: AppColors.romanticOnSurfaceVariant,
+        selectedLabelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+        unselectedLabelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
         showSelectedLabels: true,
         showUnselectedLabels: true,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: AppColors.surfaceContainerHigh,
+        backgroundColor: AppColors.romanticSurfaceContainer,
+        selectedColor: AppColors.romanticPrimary,
         labelStyle: GoogleFonts.inter(
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          color: AppColors.onSurfaceVariant,
+          color: AppColors.romanticOnSurface,
         ),
-        side: BorderSide.none,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        secondaryLabelStyle: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: AppColors.romanticSurface,
+        ),
+        side: BorderSide(color: AppColors.romanticOnSurface.withValues(alpha: 0.1)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.onPrimary,
+          backgroundColor: AppColors.romanticPrimary,
+          foregroundColor: AppColors.romanticSurface,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-          textStyle: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.08,
-          ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+          textStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.primary),
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-          textStyle: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.08,
-          ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-        ),
-      ),
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.onSurface,
-        contentTextStyle: GoogleFonts.literata(
-          color: AppColors.background,
-          fontSize: 14,
-        ),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
     );
   }
 
-  static TextTheme _buildTextTheme() {
+  static TextTheme _buildTextTheme({bool isDark = false}) {
+    final color = isDark ? AppColors.romanticOnSurface : AppColors.onSurface;
+    final variantColor = isDark ? AppColors.romanticOnSurfaceVariant : AppColors.onSurfaceVariant;
+
     return TextTheme(
-      // displayLarge → EB Garamond 42px  (display-lg)
       displayLarge: GoogleFonts.ebGaramond(
         fontSize: 42,
         fontWeight: FontWeight.w500,
         height: 1.1,
         letterSpacing: -0.02 * 42,
-        color: AppColors.onSurface,
+        color: color,
       ),
-      // headlineLarge → EB Garamond 32px  (headline-lg)
       headlineLarge: GoogleFonts.ebGaramond(
         fontSize: 32,
         fontWeight: FontWeight.w500,
         height: 1.2,
-        color: AppColors.onSurface,
+        color: color,
       ),
-      // headlineMedium → EB Garamond 24px (headline-md)
       headlineMedium: GoogleFonts.ebGaramond(
         fontSize: 24,
         fontWeight: FontWeight.w500,
         height: 1.3,
-        color: AppColors.onSurface,
+        color: color,
       ),
-      // bodyLarge → Literata 18px (body-lg)
       bodyLarge: GoogleFonts.literata(
         fontSize: 18,
         fontWeight: FontWeight.w400,
         height: 1.6,
-        color: AppColors.onSurface,
+        color: color,
       ),
-      // bodyMedium → Literata 16px (body-md)
       bodyMedium: GoogleFonts.literata(
         fontSize: 16,
         fontWeight: FontWeight.w400,
         height: 1.6,
-        color: AppColors.onSurface,
+        color: color,
       ),
-      // labelLarge → Inter 14px (label-lg)
       labelLarge: GoogleFonts.inter(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.05 * 14,
-        color: AppColors.onSurface,
+        color: color,
       ),
-      // labelMedium → Inter 12px (label-md)
       labelMedium: GoogleFonts.inter(
         fontSize: 12,
         fontWeight: FontWeight.w500,
-        color: AppColors.onSurfaceVariant,
+        color: variantColor,
       ),
-      // bodySmall → Literata 13px (caption)
       bodySmall: GoogleFonts.literata(
         fontSize: 13,
         fontWeight: FontWeight.w400,
         height: 1.4,
-        color: AppColors.onSurfaceVariant,
+        color: variantColor,
       ),
     );
   }

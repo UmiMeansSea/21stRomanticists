@@ -40,7 +40,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   }
 
   Future<void> _removePost(Map<String, dynamic> post) async {
-    final postId = post['postId'] as int?;
+    final postId = post['postId']?.toString();
     if (postId == null) return;
     await CollectionsService.instance.removePostFromCollection(
         widget.uid, widget.collectionId, postId);
@@ -124,7 +124,7 @@ class _CollectionPostTile extends StatelessWidget {
     final title = data['title'] as String? ?? 'Untitled';
     final author = data['author'] as String? ?? '';
     final imageUrl = data['imageUrl'] as String? ?? '';
-    final postId = data['postId'] as int?;
+    final postId = data['postId']?.toString();
 
     return Dismissible(
       key: ValueKey(data['postId']),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/models/submission.dart';
@@ -187,6 +188,40 @@ class FirebaseService {
     }
   }
 
+  /// Returns approved community submissions for the home feed, newest first.
+  /// Uses client-side sort to avoid requiring a composite Firestore index.
+  Future<List<Submission>> getPublishedSubmissions({int limit = 30}) async {
+    try {
+      final snapshot = await _db
+          .collection(_submissionsCol)
+          .where('status', isEqualTo: 'approved')
+          .limit(50)
+          .get();
+
+      final list = snapshot.docs
+          .map((doc) => Submission.fromJson(doc.data(), id: doc.id))
+          .toList();
+
+      list.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+      return list.take(limit).toList();
+    } catch (_) {
+      // Submissions are supplementary — fail silently so WP posts still show
+      return [];
+    }
+  }
+
+  /// Fetches a single submission by its ID.
+  Future<Submission?> getSubmissionById(String id) async {
+    try {
+      final doc = await _db.collection(_submissionsCol).doc(id).get();
+      if (!doc.exists) return null;
+      return Submission.fromJson(doc.data()!, id: doc.id);
+    } catch (e) {
+      debugPrint('Error fetching submission by ID: $e');
+      return null;
+    }
+  }
+
   /// Returns public info for a user (displayName, photoURL, etc).
   Future<Map<String, dynamic>?> getUserPublicInfo(String uid) async {
     try {
@@ -313,6 +348,20 @@ class FirebaseService {
 
   // ─── Bookmarks ────────────────────────────────────────────────────────────
 
+  /// Returns raw bookmark metadata for [uid].
+  Future<List<Map<String, dynamic>>> getBookmarks(String uid) async {
+    try {
+      final snap = await _db
+          .collection(_usersCol)
+          .doc(uid)
+          .collection(_bookmarksSub)
+          .get();
+      return snap.docs.map((doc) => doc.data()).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Returns bookmarked [Post] objects for [uid], newest-saved first.
   Future<List<Post>> getBookmarkedPosts(String uid) async {
     try {
@@ -352,31 +401,40 @@ class FirebaseService {
     }
   }
 
-  /// Toggles a bookmark for [uid] using [post] data.
-  /// Adds if not present, removes if already saved.
-  Future<void> toggleBookmark(String uid, Post post) async {
+  /// Toggles a bookmark for [uid]. Adds if not present, removes if already saved.
+  Future<void> toggleBookmark(String uid, {
+    required String id,
+    required String title,
+    required String excerpt,
+    required String? imageUrl,
+    required String author,
+    required DateTime publishedAt,
+    List<int> categories = const [],
+    String slug = '',
+    String link = '',
+  }) async {
     try {
       final ref = _db
           .collection(_usersCol)
           .doc(uid)
           .collection(_bookmarksSub)
-          .doc(post.id.toString());
+          .doc(id);
 
       final snapshot = await ref.get();
       if (snapshot.exists) {
         await ref.delete();
       } else {
         await ref.set({
-          'postId': post.id,
+          'postId': id,
           'savedAt': FieldValue.serverTimestamp(),
-          'title': post.title,
-          'excerpt': post.excerpt,
-          'imageUrl': post.imageUrl,
-          'author': post.author,
-          'publishedAt': Timestamp.fromDate(post.publishedAt),
-          'categories': post.categories,
-          'slug': post.slug,
-          'link': post.link,
+          'title': title,
+          'excerpt': excerpt,
+          'imageUrl': imageUrl,
+          'author': author,
+          'publishedAt': Timestamp.fromDate(publishedAt),
+          'categories': categories,
+          'slug': slug,
+          'link': link,
         });
       }
     } on FirebaseException catch (e) {
@@ -388,4 +446,96 @@ class FirebaseService {
       throw FirebaseServiceException('Unexpected error: $e');
     }
   }
+
+  // ─── WordPress Migration ───────────────────────────────────────────────────
+
+  /// Migrates a WordPress post to Firestore if it doesn't already exist.
+  Future<void> migrateWordPressPost(Post post) async {
+    try {
+      final query = await _db
+          .collection(_submissionsCol)
+          .where('wpId', isEqualTo: post.id)
+          .limit(1)
+          .get();
+
+      if (query.docs.isNotEmpty) return; // Already migrated
+
+      // Create a submission-like object from the WP post
+      final data = {
+        'wpId': post.id,
+        'userId': 'legacy_${post.authorId}',
+        'authorName': post.author,
+        'title': post.title,
+        'content': post.content,
+        'excerpt': post.excerpt,
+        'imageUrl': post.imageUrl,
+        'submittedAt': Timestamp.fromDate(post.publishedAt),
+        'status': 'approved',
+        'category': 'prose', // Map WP articles to prose by default
+        'tags': [],
+        'isAnonymous': false,
+        'wpLink': post.link,
+      };
+
+      await _db.collection(_submissionsCol).add(data);
+      
+      // Also ensure a user record exists for this legacy author
+      await createLegacyUser(post.author, post.authorId);
+    } catch (e) {
+      // Fail silently to not disrupt the feed load
+    }
+  }
+
+  /// Creates a Firestore user document for a WordPress author if it doesn't exist.
+  Future<void> createLegacyUser(String name, int wpId) async {
+    try {
+      final uid = 'legacy_$wpId';
+      final doc = await _db.collection(_usersCol).doc(uid).get();
+      if (doc.exists) return;
+
+      await _db.collection(_usersCol).doc(uid).set({
+        'displayName': name,
+        'displayNameLower': name.toLowerCase(),
+        'username': 'legacy_$wpId',
+        'isLegacy': true,
+        'wpId': wpId,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
+  }
+
+  // ─── Engagement Helpers ───────────────────────────────────────────────────
+
+  /// Fetches IDs of posts restacked by a list of followed users.
+  Future<List<String>> getRestacksFromFollowedUsers(List<String> followedUids) async {
+    if (followedUids.isEmpty) return [];
+    
+    // Firestore limit for 'in' queries is 30. For simplicity, we use the first 30.
+    final limitedUids = followedUids.length > 30 ? followedUids.sublist(0, 30) : followedUids;
+    
+    try {
+      // This is a bit heavy, in a real app we might use a combined 'following_feed' collection
+      // For now, we query 'restacks' across followed users if possible, or per user.
+      List<String> postIds = [];
+      
+      for (final uid in limitedUids) {
+        final snap = await _db.collection(_usersCol)
+            .doc(uid)
+            .collection('restacks')
+            .orderBy('createdAt', descending: true)
+            .limit(10)
+            .get();
+        
+        for (final doc in snap.docs) {
+          postIds.add(doc.get('postId') as String);
+        }
+      }
+      
+      return postIds.toSet().toList(); // Unique IDs
+    } catch (e) {
+      debugPrint('Error fetching followed restacks: $e');
+      return [];
+    }
+  }
 }
+

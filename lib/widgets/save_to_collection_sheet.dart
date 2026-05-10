@@ -11,24 +11,47 @@ import 'package:romanticists_app/services/collections_service.dart';
 ///   await SaveToCollectionSheet.show(context, uid: uid, post: post);
 class SaveToCollectionSheet extends StatefulWidget {
   final String uid;
-  final Post post;
+  final String id;
+  final String title;
+  final String excerpt;
+  final String? imageUrl;
+  final String author;
+  final DateTime publishedAt;
 
   const SaveToCollectionSheet({
     super.key,
     required this.uid,
-    required this.post,
+    required this.id,
+    required this.title,
+    required this.excerpt,
+    this.imageUrl,
+    required this.author,
+    required this.publishedAt,
   });
 
   static Future<void> show(
     BuildContext context, {
     required String uid,
-    required Post post,
+    required String id,
+    required String title,
+    required String excerpt,
+    String? imageUrl,
+    required String author,
+    required DateTime publishedAt,
   }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => SaveToCollectionSheet(uid: uid, post: post),
+      builder: (_) => SaveToCollectionSheet(
+        uid: uid,
+        id: id,
+        title: title,
+        excerpt: excerpt,
+        imageUrl: imageUrl,
+        author: author,
+        publishedAt: publishedAt,
+      ),
     );
   }
 
@@ -50,7 +73,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
   Future<void> _load() async {
     final cols = await CollectionsService.instance.getCollections(widget.uid);
     final savedIn = await CollectionsService.instance
-        .getCollectionIdsForPost(widget.uid, widget.post.id);
+        .getCollectionIdsForPost(widget.uid, widget.id);
     if (mounted) setState(() { _collections = cols; _savedIn = savedIn; _loading = false; });
   }
 
@@ -65,10 +88,18 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
     });
     if (inCol) {
       await CollectionsService.instance
-          .removePostFromCollection(widget.uid, col.id, widget.post.id);
+          .removePostFromCollection(widget.uid, col.id, widget.id);
     } else {
       await CollectionsService.instance
-          .addPostToCollection(widget.uid, col.id, widget.post);
+          .addPostToCollection(
+            widget.uid, 
+            col.id, 
+            postId: widget.id,
+            title: widget.title,
+            imageUrl: widget.imageUrl,
+            author: widget.author,
+            publishedAt: widget.publishedAt,
+          );
     }
   }
 
@@ -78,7 +109,15 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
     final colId = await CollectionsService.instance
         .createCollection(widget.uid, name);
     await CollectionsService.instance
-        .addPostToCollection(widget.uid, colId, widget.post);
+        .addPostToCollection(
+          widget.uid, 
+          colId, 
+          postId: widget.id,
+          title: widget.title,
+          imageUrl: widget.imageUrl,
+          author: widget.author,
+          publishedAt: widget.publishedAt,
+        );
     await _load();
   }
 

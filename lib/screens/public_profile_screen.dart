@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/models/submission.dart';
@@ -282,34 +283,37 @@ class _GridCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final date = DateFormat('MMM d, yyyy').format(sub.submittedAt);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(date, style: GoogleFonts.inter(fontSize: 9, color: AppColors.outline)),
-          const SizedBox(height: 6),
-          Text(
-            sub.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.ebGaramond(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: Text(
-              sub.content,
-              maxLines: 4,
+    return GestureDetector(
+      onTap: () => context.push('/submission/${sub.id}', extra: sub),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(date, style: GoogleFonts.inter(fontSize: 9, color: AppColors.outline)),
+            const SizedBox(height: 6),
+            Text(
+              sub.title,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.literata(fontSize: 11, color: AppColors.onSurfaceVariant),
+              style: GoogleFonts.ebGaramond(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Expanded(
+              child: Text(
+                sub.content,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.literata(fontSize: 11, color: AppColors.onSurfaceVariant),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

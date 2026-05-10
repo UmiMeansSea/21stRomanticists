@@ -9,8 +9,11 @@ import 'package:share_plus/share_plus.dart';
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/providers/bookmarks_provider.dart';
+import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/services/wp_api.dart';
+import 'package:romanticists_app/services/read_status_service.dart';
 import 'package:romanticists_app/app_theme.dart';
+import 'package:romanticists_app/widgets/save_to_collection_sheet.dart';
 
 // ─── Route entry-point ────────────────────────────────────────────────────────
 
@@ -43,8 +46,18 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     super.initState();
     if (widget.initialPost != null) {
       _post = widget.initialPost;
+      _markAsRead();
     } else {
       _fetchPost();
+    }
+  }
+
+  void _markAsRead() {
+    final auth = context.read<AuthProvider>();
+    if (auth.isAuthenticated && _post != null) {
+      final uniqueId = 'wp_${_post!.id}';
+      ReadStatusService.instance.markAsRead(auth.uid!, _post!.id.toString());
+      context.read<PostsProvider>().markAsReadLocally(uniqueId);
     }
   }
 
@@ -55,7 +68,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     });
     try {
       final post = await WpApiService.instance.fetchPost(widget.postId);
-      if (mounted) setState(() { _post = post; _loading = false; });
+      if (mounted) {
+        setState(() {
+          _post = post;
+          _loading = false;
+        });
+        _markAsRead();
+      }
     } on WpApiException catch (e) {
       if (mounted) setState(() { _error = e.message; _loading = false; });
     } catch (_) {
@@ -389,7 +408,7 @@ class _ArticleFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<BookmarksProvider>(
       builder: (context, bm, _) {
-        final saved = bm.isBookmarked(post.id);
+        final saved = bm.isBookmarked(post.id.toString());
         return Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -438,7 +457,7 @@ class _ArticleFooter extends StatelessWidget {
                         size: 16,
                       ),
                       label: Text(saved ? 'Saved' : 'Save'),
-                      onPressed: () {
+                      onPressed: () async {
                         final auth = context.read<AuthProvider>();
                         if (!auth.isAuthenticated) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -456,7 +475,31 @@ class _ArticleFooter extends StatelessWidget {
                           );
                           return;
                         }
-                        bm.toggle(post);
+                        final wasBookmarked = saved;
+                        await bm.toggle(
+                          id: post.id.toString(),
+                          title: post.title,
+                          excerpt: post.excerpt,
+                          imageUrl: post.imageUrl,
+                          author: post.author,
+                          publishedAt: post.publishedAt,
+                          categories: post.categories,
+                          slug: post.slug,
+                          link: post.link,
+                        );
+
+                        if (context.mounted && !wasBookmarked) {
+                          await SaveToCollectionSheet.show(
+                            context,
+                            uid: auth.uid!,
+                            id: post.id.toString(),
+                            title: post.title,
+                            excerpt: post.excerpt,
+                            imageUrl: post.imageUrl,
+                            author: post.author,
+                            publishedAt: post.publishedAt,
+                          );
+                        }
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: saved ? AppColors.secondary : AppColors.primary,
@@ -512,7 +555,7 @@ class _BookmarkAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<BookmarksProvider>(
       builder: (context, bm, _) {
-        final saved = bm.isBookmarked(post.id);
+        final saved = bm.isBookmarked(post.id.toString());
         return IconButton(
           tooltip: saved ? 'Remove bookmark' : 'Save post',
           icon: AnimatedSwitcher(
@@ -523,7 +566,7 @@ class _BookmarkAction extends StatelessWidget {
               color: saved ? AppColors.secondary : AppColors.primary,
             ),
           ),
-          onPressed: () {
+          onPressed: () async {
             final auth = context.read<AuthProvider>();
             if (!auth.isAuthenticated) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -541,7 +584,31 @@ class _BookmarkAction extends StatelessWidget {
               );
               return;
             }
-            bm.toggle(post);
+            final wasBookmarked = saved;
+            await bm.toggle(
+              id: post.id.toString(),
+              title: post.title,
+              excerpt: post.excerpt,
+              imageUrl: post.imageUrl,
+              author: post.author,
+              publishedAt: post.publishedAt,
+              categories: post.categories,
+              slug: post.slug,
+              link: post.link,
+            );
+
+            if (context.mounted && !wasBookmarked) {
+              await SaveToCollectionSheet.show(
+                context,
+                uid: auth.uid!,
+                id: post.id.toString(),
+                title: post.title,
+                excerpt: post.excerpt,
+                imageUrl: post.imageUrl,
+                author: post.author,
+                publishedAt: post.publishedAt,
+              );
+            }
           },
         );
       },

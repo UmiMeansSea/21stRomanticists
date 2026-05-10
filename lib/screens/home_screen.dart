@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/models/category.dart';
-import 'package:romanticists_app/widgets/post_card.dart';
+import 'package:romanticists_app/widgets/post_card.dart'; // PostCard + FeedCard + PostCardSkeleton + CategoryChip
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
@@ -43,6 +44,18 @@ class _HomeScreenState extends State<HomeScreen> {
       final following = await FirebaseService.instance.getFollowingIds(auth.user!.uid);
       if (mounted) {
         context.read<PostsProvider>().updateFollowingIds(following);
+      }
+    }
+    
+    // Precache first few images for smoother experience
+    if (mounted) {
+      final provider = context.read<PostsProvider>();
+      final items = provider.feedItems;
+      for (int i = 0; i < (items.length > 3 ? 3 : items.length); i++) {
+        final url = items[i].imageUrl;
+        if (url != null && url.isNotEmpty) {
+          precacheImage(CachedNetworkImageProvider(url), context);
+        }
       }
     }
   }
@@ -148,6 +161,16 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Search',
           ),
         IconButton(
+          icon: const Icon(Icons.sync_outlined, color: AppColors.primary),
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Starting WordPress migration...')),
+            );
+            context.read<PostsProvider>().syncWithWordPress();
+          },
+          tooltip: 'Sync with WordPress',
+        ),
+        IconButton(
           icon: const Icon(Icons.settings_outlined, color: AppColors.primary),
           onPressed: () => context.push('/settings'),
           tooltip: 'Settings',
@@ -187,7 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // ── Error with no data ──
-    if (provider.status == PostsStatus.failure && provider.posts.isEmpty) {
+    if (provider.status == PostsStatus.failure && provider.feedItems.isEmpty) {
       return [
         SliverFillRemaining(
           hasScrollBody: false,
@@ -200,7 +223,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // ── Empty state ──
-    if (provider.posts.isEmpty) {
+    if (provider.feedItems.isEmpty) {
       return [
         SliverFillRemaining(
           hasScrollBody: false,
@@ -273,7 +296,50 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // Posts
+    // Partial error indicator (WP failed but we have submissions, or vice-versa)
+    if (provider.hasWpError || provider.hasSubError) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.errorContainer.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.error.withOpacity(0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      provider.hasWpError 
+                          ? 'Failed to load some articles. Showing community posts only.' 
+                          : 'Failed to load community posts. Showing articles only.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Feed items (WP posts + community submissions merged)
+    final items = provider.feedItems;
     slivers.add(
       SliverPadding(
         padding: const EdgeInsets.only(
@@ -285,24 +351,25 @@ class _HomeScreenState extends State<HomeScreen> {
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) {
-              if (index == provider.posts.length) {
+              if (index == items.length) {
                 return _ListFooter(
                   isLoading: provider.isLoadingMore,
                   hasMore: provider.hasMore,
                 );
               }
-              final post = provider.posts[index];
-              final isFeatured = index == 0 && provider.searchQuery.isEmpty && _peopleResults.isEmpty;
+              final item = items[index];
+              final isFeatured = index == 0 &&
+                  provider.searchQuery.isEmpty &&
+                  _peopleResults.isEmpty;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: PostCard(
-                  post: post,
-                  categories: provider.categories.toList(),
+                child: FeedCard(
+                  item: item,
                   featured: isFeatured,
                 ),
               );
             },
-            childCount: provider.posts.length + 1,
+            childCount: items.length + 1,
           ),
         ),
       ),

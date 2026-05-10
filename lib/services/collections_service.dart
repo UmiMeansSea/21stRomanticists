@@ -87,8 +87,14 @@ class CollectionsService {
 
   /// Adds [post] to the given collection. No-op if already present.
   Future<void> addPostToCollection(
-      String uid, String colId, Post post) async {
-    final postRef = _postsRef(uid, colId).doc(post.id.toString());
+      String uid, String colId, {
+        required String postId,
+        required String title,
+        required String? imageUrl,
+        required String author,
+        required DateTime publishedAt,
+      }) async {
+    final postRef = _postsRef(uid, colId).doc(postId);
     final colRef = _colRef(uid).doc(colId);
 
     await _db.runTransaction((tx) async {
@@ -96,11 +102,11 @@ class CollectionsService {
       if (existing.exists) return; // already in collection
 
       tx.set(postRef, {
-        'postId': post.id,
-        'title': post.cleanTitle,
-        'imageUrl': post.imageUrl,
-        'author': post.author,
-        'publishedAt': Timestamp.fromDate(post.publishedAt),
+        'postId': postId,
+        'title': title,
+        'imageUrl': imageUrl,
+        'author': author,
+        'publishedAt': Timestamp.fromDate(publishedAt),
         'addedAt': FieldValue.serverTimestamp(),
       });
 
@@ -110,16 +116,16 @@ class CollectionsService {
       final hasCover = (colSnap.data() as Map?)?['coverImageUrl'] != null;
       tx.update(colRef, {
         'postCount': currentCount + 1,
-        if (!hasCover && post.imageUrl.isNotEmpty)
-          'coverImageUrl': post.imageUrl,
+        if (!hasCover && imageUrl != null && imageUrl.isNotEmpty)
+          'coverImageUrl': imageUrl,
       });
     });
   }
 
   /// Removes [post] from the given collection.
   Future<void> removePostFromCollection(
-      String uid, String colId, int postId) async {
-    final postRef = _postsRef(uid, colId).doc(postId.toString());
+      String uid, String colId, String postId) async {
+    final postRef = _postsRef(uid, colId).doc(postId);
     final colRef = _colRef(uid).doc(colId);
 
     await _db.runTransaction((tx) async {
@@ -133,13 +139,13 @@ class CollectionsService {
   }
 
   /// Returns the IDs of all collections this post belongs to.
-  Future<Set<String>> getCollectionIdsForPost(String uid, int postId) async {
+  Future<Set<String>> getCollectionIdsForPost(String uid, String postId) async {
     try {
       final ids = <String>{};
       final cols = await getCollections(uid);
       for (final col in cols) {
         final doc =
-            await _postsRef(uid, col.id).doc(postId.toString()).get();
+            await _postsRef(uid, col.id).doc(postId).get();
         if (doc.exists) ids.add(col.id);
       }
       return ids;

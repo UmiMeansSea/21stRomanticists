@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
@@ -19,8 +20,11 @@ import 'package:romanticists_app/screens/profile_screen.dart';
 import 'package:romanticists_app/screens/public_profile_screen.dart';
 import 'package:romanticists_app/screens/edit_profile_screen.dart';
 import 'package:romanticists_app/screens/collection_detail_screen.dart';
+import 'package:romanticists_app/screens/submission_detail_screen.dart';
 import 'package:romanticists_app/models/post.dart';
+import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/services/notification_service.dart';
+import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/widgets/app_shell.dart';
 
 // ─── NOTE ──────────────────────────────────────────────────────────────────
@@ -29,7 +33,7 @@ import 'package:romanticists_app/widgets/app_shell.dart';
 // Uncomment the lines below after running `flutterfire configure`.
 //
 import 'package:firebase_core/firebase_core.dart';
-// import 'firebase_options.dart';
+import 'package:romanticists_app/firebase_options.dart';
 // ───────────────────────────────────────────────────────────────────────────
 
 void main() async {
@@ -45,15 +49,17 @@ void main() async {
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: AppColors.surfaceContainerLow,
-      systemNavigationBarIconBrightness: Brightness.dark,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: AppColors.romanticSurface,
+      systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
 
   // ── Firebase init — guarded so a slow/failing init never blocks the app ──
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     await NotificationService.instance.init();
     debugPrint('[Firebase] initialized successfully');
   } catch (e) {
@@ -75,8 +81,15 @@ class RomanticistsApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => PostsProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, PostsProvider>(
+          create: (_) => PostsProvider(),
+          update: (_, auth, posts) {
+            final p = posts ?? PostsProvider();
+            p.updateUserId(auth.uid);
+            return p;
+          },
+        ),
         ChangeNotifierProxyProvider<AuthProvider, BookmarksProvider>(
           create: (ctx) => BookmarksProvider(ctx.read<AuthProvider>()),
           update: (ctx, auth, prev) => prev ?? BookmarksProvider(auth),
@@ -85,7 +98,8 @@ class RomanticistsApp extends StatelessWidget {
       child: MaterialApp.router(
         title: 'The 21st Romanticists',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
+        theme: AppTheme.dark,
+        themeMode: ThemeMode.dark,
         routerConfig: _router,
       ),
     );
@@ -149,6 +163,48 @@ final GoRouter _router = GoRouter(
         final postId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
         final post = state.extra as Post?;
         return PostDetailScreen(postId: postId, initialPost: post);
+      },
+    ),
+
+    GoRoute(
+      path: '/submission/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id'] ?? '';
+        final submission = state.extra as Submission?;
+        
+        if (submission != null) {
+          return SubmissionDetailScreen(submission: submission);
+        }
+
+        // Fallback for direct links or refreshes
+        return FutureBuilder<Submission?>(
+          future: FirebaseService.instance.getSubmissionById(id.replaceFirst('sub_', '')),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                backgroundColor: AppColors.background,
+                body: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              );
+            }
+            if (snapshot.hasError || !snapshot.hasData) {
+              return Scaffold(
+                backgroundColor: AppColors.background,
+                body: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.search_off_outlined, size: 48, color: AppColors.outline),
+                      const SizedBox(height: 16),
+                      Text('Submission not found.', style: GoogleFonts.ebGaramond(fontSize: 18)),
+                      TextButton(onPressed: () => context.go('/'), child: const Text('Go Home')),
+                    ],
+                  ),
+                ),
+              );
+            }
+            return SubmissionDetailScreen(submission: snapshot.data!);
+          },
+        );
       },
     ),
 

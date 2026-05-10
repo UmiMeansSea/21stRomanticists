@@ -1,0 +1,120 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Modern Romanticist Content Card</title>
+<!-- Tailwind CSS Integration -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: EB Garamond -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&amp;display=swap" rel="stylesheet">
+<!-- FontAwesome for Icons -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<!-- Tailwind Configuration for Modern Romanticist (Dark Theme) -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: '#1a1816', // Dark, high-contrast surface
+            'surface-container': '#252320', // Slightly lighter container
+            'surface-bright': '#33302c',
+            'on-surface': '#fbf9f3', // Off-white text
+            'on-surface-variant': '#dbdad4', // Dimmer text
+            primary: '#c1a68d', // Muted gold/bronze accent
+            'on-primary': '#1a1816',
+          },
+          fontFamily: {
+            serif: ['"EB Garamond"', 'serif'],
+            sans: ['ui-sans-serif', 'system-ui', 'sans-serif'],
+          },
+          borderRadius: {
+            'card': '1rem', // ROUND_FOUR equivalent roughly
+            'pill': '9999px',
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-utilities">
+    /* Utility to create a gradient overlay on images */
+    .image-fade-overlay {
+      background: linear-gradient(to top, #1a1816 0%, transparent 100%);
+    }
+    
+    /* Ensure serif font looks crisp */
+    .font-serif {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface font-sans flex items-center justify-center min-h-screen p-4">
+<!-- BEGIN: Content Card -->
+<!-- Main container for the mobile content card -->
+<article class="bg-surface-container rounded-card overflow-hidden w-full max-w-[400px] shadow-2xl relative border border-surface-bright/30" data-purpose="content-card">
+<!-- BEGIN: Header Image Section -->
+<header class="relative w-full h-64 sm:h-72" data-purpose="card-header">
+<!-- Atmospheric header image -->
+<img alt="A grand library window letting in soft light" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvEPuRwHt7OuMXdIX5Oec3ex30LRN0yAW7VvS_6WVTl9GPW8OCtz8xCR6PCIP3pXzMAKJS__LySLVub1CUG2oBJnfo_kdy-khIL82WOa7HeSgoqZwwGAsr8SVW_gUPlGziYWEr3c2MUsIuoNQWgOAbd4WCoVfC17UmXTRXmv8vpdnL0FTE1cxSrwylnDJyoouA50VeX5jSIZD7iDipN7UjsyUsRLTt8qi351c0pSOJDO1wTUE6cbdx3GOYklma71_DlUqa3uT-MRbL">
+<!-- Gradient overlay to blend image into background smoothly -->
+<div aria-hidden="true" class="absolute inset-0 image-fade-overlay pointer-events-none"></div>
+<!-- Floating Save Bookmark Icon -->
+<button aria-label="Save bookmark" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-surface/50 backdrop-blur-sm flex items-center justify-center text-on-surface hover:text-primary hover:bg-surface/80 transition-colors border border-on-surface/10">
+<i class="fa-regular fa-bookmark text-lg"></i>
+</button>
+</header>
+<!-- END: Header Image Section -->
+<!-- BEGIN: Main Content Area -->
+<main class="px-6 pt-0 relative z-10 -mt-6 pb-8" data-purpose="card-body">
+<!-- Title -->
+<h1 class="font-serif text-3xl font-semibold mb-4 leading-tight tracking-tight">The Weight of Silence</h1>
+<!-- Introspective body text -->
+<p class="font-serif text-lg text-on-surface-variant leading-relaxed mb-6">
+        There is a profound heaviness in the unspoken words that linger between us. They settle like dust in the empty corners of a room long abandoned, gathering volume until the air itself feels thick with everything we refuse to say.
+      </p>
+<!-- BEGIN: Author Attribution Section -->
+<div class="flex items-center justify-between border-t border-surface-bright/50 pt-5 mb-5" data-purpose="author-info">
+<div class="flex items-center justify-between w-full">
+<div class="flex flex-col items-start gap-2">
+<!-- Profile Picture -->
+<img alt="Anya Sharma profile picture" class="w-12 h-12 rounded-full object-cover border-2 border-surface-bright" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQEtTJ2ecAIfs342-v68lySscVphiHsR3WQYI8M2Vr8poxDcLRtuPFxDV4p9tIs06bJhaS-Z6l-kSJcf8uijAsE89vh4gKWZdLDMyJa5XjIc1cGIUGgQ72dwdaaIX98TZ78cZMvnrVwkb3gMylGbgsaAIDii5HAKQ3UbtzePSpFb5Lu5tbDvojtgy_vi3QSh9uZ7wtTS1YDR9YIPDV7ztFNKNSANzXrl3L0jUA30Xs33AYxfuej0NIJ8fviSt2FXee9qpeN9M6eITk">
+<div class="flex flex-col">
+<span class="font-serif font-medium text-lg leading-none">@sameera</span>
+<span class="text-on-surface-variant font-sans tracking-wide uppercase text-[10px] mt-1">suscribe</span>
+</div>
+</div>
+<!-- Engagement Stats Moved Here -->
+<div class="flex items-center gap-4">
+<!-- Heart / Like -->
+<button class="flex flex-col items-center gap-0.5 text-on-surface-variant hover:text-red-400 transition-colors group">
+<i class="fa-regular fa-heart text-base group-hover:hidden"></i>
+<i class="fa-solid fa-heart text-base text-red-500 hidden group-hover:block"></i>
+<span class="text-[10px] font-medium font-sans">1.2k</span>
+</button>
+<!-- Comment -->
+<button class="flex flex-col items-center gap-0.5 text-on-surface-variant hover:text-on-surface transition-colors">
+<i class="fa-regular fa-comment text-base"></i>
+<span class="text-[10px] font-medium font-sans">84</span>
+</button>
+<!-- Repost -->
+<button class="flex flex-col items-center gap-0.5 text-on-surface-variant hover:text-green-400 transition-colors">
+<i class="fa-solid fa-retweet text-base"></i>
+<span class="text-[10px] font-medium font-sans">320</span>
+</button>
+<!-- Share -->
+<button aria-label="Share" class="flex items-center text-on-surface-variant hover:text-on-surface transition-colors ml-1">
+<i class="fa-solid fa-arrow-up-from-bracket text-base"></i>
+</button>
+</div>
+</div></div>
+<!-- END: Author Attribution Section -->
+</main>
+<!-- END: Main Content Area -->
+<!-- BEGIN: Engagement Footer -->
+<!-- END: Engagement Footer -->
+</article>
+<!-- END: Content Card -->
+
+
+</body></html>

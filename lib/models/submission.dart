@@ -54,6 +54,20 @@ class Submission {
   final SubmissionStatus status;
   final List<String> tags;       // up to 3 user-defined tags
   final String? imageUrl;        // optional cover image
+  final int? wpId;               // WordPress post ID for migrated content
+  final String? wpLink;          // Original WP link
+  final int likeCount;
+  final int commentCount;
+  final int reshareCount;
+  final int viewCount;
+  final bool isLiked;            // Local status for current user
+  final bool isReshared;         // Local status for current user
+
+  /// Short preview of the content for feeds and bookmarks.
+  String get excerpt {
+    if (content.length <= 150) return content;
+    return '${content.substring(0, 147)}...';
+  }
 
   const Submission({
     this.id,
@@ -67,6 +81,14 @@ class Submission {
     this.status = SubmissionStatus.pending,
     this.tags = const [],
     this.imageUrl,
+    this.wpId,
+    this.wpLink,
+    this.likeCount = 0,
+    this.commentCount = 0,
+    this.reshareCount = 0,
+    this.viewCount = 0,
+    this.isLiked = false,
+    this.isReshared = false,
   });
 
   // ─── Firestore ─────────────────────────────────────────────────────────────
@@ -91,6 +113,12 @@ class Submission {
       ),
       tags: ((json['tags'] as List<dynamic>?) ?? []).cast<String>(),
       imageUrl: json['imageUrl'] as String?,
+      wpId: json['wpId'] as int?,
+      wpLink: json['wpLink'] as String?,
+      likeCount: json['likeCount'] as int? ?? 0,
+      commentCount: json['commentCount'] as int? ?? 0,
+      reshareCount: json['reshareCount'] as int? ?? 0,
+      viewCount: json['viewCount'] as int? ?? 0,
     );
   }
 
@@ -105,6 +133,12 @@ class Submission {
         'status': status.value,
         'tags': tags,
         if (imageUrl != null) 'imageUrl': imageUrl,
+        if (wpId != null) 'wpId': wpId,
+        if (wpLink != null) 'wpLink': wpLink,
+        'likeCount': likeCount,
+        'commentCount': commentCount,
+        'reshareCount': reshareCount,
+        'viewCount': viewCount,
       };
 
   Submission copyWith({
@@ -119,6 +153,14 @@ class Submission {
     SubmissionStatus? status,
     List<String>? tags,
     String? imageUrl,
+    int? wpId,
+    String? wpLink,
+    int? likeCount,
+    int? commentCount,
+    int? reshareCount,
+    int? viewCount,
+    bool? isLiked,
+    bool? isReshared,
   }) {
     return Submission(
       id: id ?? this.id,
@@ -132,6 +174,14 @@ class Submission {
       status: status ?? this.status,
       tags: tags ?? this.tags,
       imageUrl: imageUrl ?? this.imageUrl,
+      wpId: wpId ?? this.wpId,
+      wpLink: wpLink ?? this.wpLink,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount ?? this.commentCount,
+      reshareCount: reshareCount ?? this.reshareCount,
+      viewCount: viewCount ?? this.viewCount,
+      isLiked: isLiked ?? this.isLiked,
+      isReshared: isReshared ?? this.isReshared,
     );
   }
 }

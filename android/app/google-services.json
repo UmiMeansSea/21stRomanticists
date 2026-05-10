@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "206445266291-qtb1cbqv7i7hem8sds3vbk264881q2b8.apps.googleusercontent.com",
+          "client_id": "206445266291-e55l2u3gklg54r6ga7c3b7kp2r8i01in.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.example.romanticists_app",
-            "certificate_hash": "cd2a356ee2ba1ec03fafe2bbb5744953c50ae159"
+            "certificate_hash": "59e0fc40252a7f5c732834a794423730596a587c"
           }
         },
         {

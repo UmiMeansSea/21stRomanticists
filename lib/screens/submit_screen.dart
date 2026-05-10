@@ -1,11 +1,16 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
+import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 
 /// Write & publish screen — posts go live immediately (status: approved).
@@ -83,7 +88,7 @@ class _SubmitScreenState extends State<SubmitScreen> {
         userId: uid,
         authorName: _isAnonymous
             ? 'Anonymous'
-            : _authorController.text.trim(),
+            : (auth.user?.displayName ?? _authorController.text.trim()),
         title: _titleController.text.trim(),
         category: _category,
         content: _contentController.text.trim(),
@@ -96,8 +101,17 @@ class _SubmitScreenState extends State<SubmitScreen> {
       await FirebaseService.instance.submitWork(submission);
 
       if (mounted) {
+        // Update local feed for instant visibility
+        context.read<PostsProvider>().addSubmissionLocally(submission);
+        
+        // Precache the new image if it exists for a jank-free transition
+        if (imageUrl != null && mounted) {
+          precacheImage(CachedNetworkImageProvider(imageUrl), context);
+        }
+        
+        context.read<PostsProvider>().refresh(); // Still refresh background
         _reset();
-        _showSnack('✦ Your work is now live!');
+        _showSnack('❆ Your work is now live!');
       }
     } on FirebaseServiceException catch (e) {
       if (mounted) {
@@ -149,186 +163,200 @@ class _SubmitScreenState extends State<SubmitScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: Text(
-          'Write',
-          style: GoogleFonts.ebGaramond(
-              fontSize: 22, fontWeight: FontWeight.w500, color: AppColors.primary),
-        ),
-        backgroundColor: AppColors.background,
-        foregroundColor: AppColors.primary,
+        backgroundColor: AppColors.surface,
+        title: Text('THE ROMANTICISTS',
+            style: GoogleFonts.ebGaramond(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2.0,
+            )),
         centerTitle: true,
         elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 60),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 100),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ─────────────────────────────────────────────────
-              Text('Share Your Voice',
-                  style: GoogleFonts.ebGaramond(
-                      fontSize: 32, fontWeight: FontWeight.w500, height: 1.15)),
-              const SizedBox(height: 6),
-              Text(
-                'Your work publishes instantly to the community.',
-                style: GoogleFonts.literata(
-                    fontSize: 14,
-                    color: AppColors.onSurfaceVariant,
-                    fontStyle: FontStyle.italic),
-              ),
-              const SizedBox(height: 28),
-              const _SectionDivider(),
-              const SizedBox(height: 28),
+                  // ── Header ─────────────────────────────────────────────────
+                  Text('Share Your Voice',
+                      style: GoogleFonts.ebGaramond(
+                          fontSize: 32, fontWeight: FontWeight.w500, height: 1.15)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Your work publishes instantly to the community.',
+                    style: GoogleFonts.literata(
+                        fontSize: 14,
+                        color: AppColors.onSurfaceVariant,
+                        fontStyle: FontStyle.italic),
+                  ),
+                  const SizedBox(height: 28),
+                  const _SectionDivider(),
+                  const SizedBox(height: 28),
 
-              // ── Anonymous toggle ────────────────────────────────────────
-              _buildAnonymousToggle(),
-              const SizedBox(height: 24),
+                  // ── Author name / Anonymous toggle ─────────────────────────
+                  if (auth.user == null) ...[
+                    _buildAnonymousToggle(),
+                    const SizedBox(height: 24),
+                  ],
 
-              // ── Author name ─────────────────────────────────────────────
-              AnimatedSize(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeInOut,
-                child: _isAnonymous
-                    ? const SizedBox.shrink()
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const _FieldLabel('Author Name'),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            key: const ValueKey('authorField'),
-                            controller: _authorController,
-                            textCapitalization: TextCapitalization.words,
-                            style: GoogleFonts.literata(fontSize: 16),
-                            decoration: _dec('Your name'),
-                            validator: (v) {
-                              if (_isAnonymous) return null;
-                              if (v == null || v.trim().isEmpty) {
-                                return 'Enter your name or toggle Anonymous.';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                        ],
+                  if (auth.user == null)
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeInOut,
+                      child: _isAnonymous
+                          ? const SizedBox.shrink()
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const _FieldLabel('Author Name'),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  key: const ValueKey('authorField'),
+                                  controller: _authorController,
+                                  textCapitalization: TextCapitalization.words,
+                                  style: GoogleFonts.literata(fontSize: 16),
+                                  decoration: _dec('Your name'),
+                                  validator: (v) {
+                                    if (_isAnonymous) return null;
+                                    if (v == null || v.trim().isEmpty) {
+                                      return 'Enter your name or toggle Anonymous.';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 24),
+                              ],
+                            ),
+                    ),
+
+                  // ── Title ───────────────────────────────────────────────────
+                  const _FieldLabel('Title'),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _titleController,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: GoogleFonts.ebGaramond(fontSize: 20),
+                    decoration: _dec('Give your piece a title'),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Please enter a title.';
+                      if (v.trim().length < 3) return 'Title must be at least 3 characters.';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── Category ────────────────────────────────────────────────
+                  const _FieldLabel('Category'),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<SubmissionCategory>(
+                    value: _category,
+                    style: GoogleFonts.literata(fontSize: 16, color: AppColors.onSurface),
+                    dropdownColor: AppColors.surfaceContainerLow,
+                    decoration: _dec(''),
+                    items: SubmissionCategory.values
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
+                        .toList(),
+                    onChanged: (v) { if (v != null) setState(() => _category = v); },
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── Cover image ─────────────────────────────────────────────
+                  const _FieldLabel('Cover Image (optional)'),
+                  const SizedBox(height: 10),
+                  _buildImagePicker(),
+                  const SizedBox(height: 24),
+
+                  // ── Tags (max 3) ─────────────────────────────────────────────
+                  Row(
+                    children: [
+                      const _FieldLabel('Tags'),
+                      const SizedBox(width: 6),
+                      Text('(max 3)',
+                          style: GoogleFonts.inter(
+                              fontSize: 10, color: AppColors.outline, letterSpacing: 0.5)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _buildTagInput(),
+                  if (_tags.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: _tags
+                          .map((t) => _TagChip(tag: t, onRemove: () => _removeTag(t)))
+                          .toList(),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+
+                  // ── Content ─────────────────────────────────────────────────
+                  const _FieldLabel('Your Work'),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _contentController,
+                    maxLines: null,
+                    minLines: 10,
+                    keyboardType: TextInputType.multiline,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: GoogleFonts.literata(fontSize: 16, height: 1.8),
+                    decoration: _dec('Write or paste your poem or prose here…'),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Content cannot be empty.';
+                      if (v.trim().split('\n').length < 2 && v.trim().split(' ').length < 10) {
+                        return 'Please provide more content (at least a few lines).';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 36),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _submitting ? null : _publish,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.onPrimary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
                       ),
-              ),
-
-              // ── Title ───────────────────────────────────────────────────
-              const _FieldLabel('Title'),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _titleController,
-                textCapitalization: TextCapitalization.sentences,
-                style: GoogleFonts.ebGaramond(fontSize: 20),
-                decoration: _dec('Give your piece a title'),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Please enter a title.';
-                  if (v.trim().length < 3) return 'Title must be at least 3 characters.';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-
-              // ── Category ────────────────────────────────────────────────
-              const _FieldLabel('Category'),
-              const SizedBox(height: 6),
-              DropdownButtonFormField<SubmissionCategory>(
-                initialValue: _category,
-                style: GoogleFonts.literata(fontSize: 16, color: AppColors.onSurface),
-                dropdownColor: AppColors.surfaceContainerLow,
-                decoration: _dec(''),
-                items: SubmissionCategory.values
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
-                    .toList(),
-                onChanged: (v) { if (v != null) setState(() => _category = v); },
-              ),
-              const SizedBox(height: 24),
-
-              // ── Cover image ─────────────────────────────────────────────
-              const _FieldLabel('Cover Image (optional)'),
-              const SizedBox(height: 10),
-              _buildImagePicker(),
-              const SizedBox(height: 24),
-
-              // ── Tags (max 3) ─────────────────────────────────────────────
-              Row(
-                children: [
-                  const _FieldLabel('Tags'),
-                  const SizedBox(width: 6),
-                  Text('(max 3)',
-                      style: GoogleFonts.inter(
-                          fontSize: 10, color: AppColors.outline, letterSpacing: 0.5)),
+                      child: _submitting
+                          ? const SizedBox(
+                              width: 22, height: 22,
+                              child: CircularProgressIndicator(
+                                  color: AppColors.onPrimary, strokeWidth: 2))
+                          : Text('Publish Now',
+                              style: GoogleFonts.inter(
+                                  fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 10),
-              _buildTagInput(),
-              if (_tags.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: _tags
-                      .map((t) => _TagChip(tag: t, onRemove: () => _removeTag(t)))
-                      .toList(),
-                ),
-              ],
-              const SizedBox(height: 24),
-
-              // ── Content ─────────────────────────────────────────────────
-              const _FieldLabel('Your Work'),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _contentController,
-                maxLines: null,
-                minLines: 10,
-                keyboardType: TextInputType.multiline,
-                textCapitalization: TextCapitalization.sentences,
-                style: GoogleFonts.literata(fontSize: 16, height: 1.8),
-                decoration: _dec('Write or paste your poem or prose here…'),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Content cannot be empty.';
-                  if (v.trim().split('\n').length < 2 && v.trim().split(' ').length < 10) {
-                    return 'Please provide more content (at least a few lines).';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 36),
-
-              // ── Publish button ───────────────────────────────────────────
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _submitting ? null : _publish,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.onPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-                  ),
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 22, height: 22,
-                          child: CircularProgressIndicator(
-                              color: AppColors.onPrimary, strokeWidth: 2))
-                      : Text('Publish Now',
-                          style: GoogleFonts.inter(
-                              fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
+
+  // ─── Input Decorator ───────────────────────────────────────────────────────
+  InputDecoration _dec(String label) => InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.literata(color: AppColors.onSurfaceVariant),
+        filled: true,
+        fillColor: AppColors.surfaceContainerLow,
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: BorderSide(color: AppColors.primary, width: 1.5)),
+      );
 
   // ─── Cover image picker ────────────────────────────────────────────────────
 
@@ -437,6 +465,52 @@ class _SubmitScreenState extends State<SubmitScreen> {
 
   // ─── Anonymous toggle ──────────────────────────────────────────────────────
 
+  Widget _buildLoggedInAuthorLabel(User user) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            CircleAvatar(
+              radius: 12,
+              backgroundColor: AppColors.surfaceContainerHigh,
+              backgroundImage: user.photoURL != null ? CachedNetworkImageProvider(user.photoURL!) : null,
+              child: user.photoURL == null ? const Icon(Icons.person, size: 14) : null,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              _isAnonymous ? 'Posting Anonymously' : 'Posting as ${user.displayName ?? 'Romanticist'}',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+            const Spacer(),
+            Switch(
+              value: _isAnonymous,
+              onChanged: (v) => setState(() => _isAnonymous = v),
+              activeColor: AppColors.primary,
+            ),
+          ],
+        ),
+        if (_isAnonymous)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 38),
+            child: Text(
+              'Your identity will be hidden.',
+              style: GoogleFonts.literata(
+                fontSize: 12,
+                color: AppColors.outline,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
   Widget _buildAnonymousToggle() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -474,32 +548,6 @@ class _SubmitScreenState extends State<SubmitScreen> {
       ),
     );
   }
-
-  InputDecoration _dec(String hint) => InputDecoration(
-        hintText: hint,
-        hintStyle: GoogleFonts.literata(
-            fontSize: 15,
-            color: AppColors.onSurfaceVariant,
-            fontStyle: FontStyle.italic),
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(2),
-            borderSide: const BorderSide(color: AppColors.outlineVariant)),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(2),
-            borderSide: const BorderSide(color: AppColors.outlineVariant)),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(2),
-            borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-        errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(2),
-            borderSide: const BorderSide(color: AppColors.error)),
-        focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(2),
-            borderSide: const BorderSide(color: AppColors.error, width: 1.5)),
-        filled: true,
-        fillColor: AppColors.surfaceContainerLow,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      );
 }
 
 // ─── Tag chip ─────────────────────────────────────────────────────────────────

@@ -14,13 +14,16 @@ class AuthProvider extends ChangeNotifier {
   }
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _google = GoogleSignIn();
+  final GoogleSignIn _google = GoogleSignIn(
+    serverClientId: '206445266291-av3tpl5sfck988lenpehgo3ki255746i.apps.googleusercontent.com',
+  );
 
   late final dynamic _sub; // StreamSubscription<User?>
 
   // ─── Public state ──────────────────────────────────────────────────────────
 
   User? get user => _auth.currentUser;
+  String? get uid => user?.uid;
   bool get isAuthenticated => user != null;
   AuthStatus get status {
     if (_status == AuthStatus.unknown) return AuthStatus.unknown;
@@ -165,22 +168,27 @@ class AuthProvider extends ChangeNotifier {
 
   String _friendlyError(String code) {
     switch (code) {
+      // Firebase Auth SDK v4+ consolidates these into 'invalid-credential'
+      case 'invalid-credential':
       case 'user-not-found':
-        return 'No account found with this email.';
       case 'wrong-password':
-        return 'Incorrect password. Please try again.';
+        return 'Incorrect email or password. Please try again.';
       case 'email-already-in-use':
         return 'An account with this email already exists.';
       case 'weak-password':
         return 'Password must be at least 6 characters.';
       case 'invalid-email':
         return 'Please enter a valid email address.';
+      case 'user-disabled':
+        return 'This account has been disabled. Please contact support.';
+      case 'operation-not-allowed':
+        return 'This sign-in method is not enabled. Please contact support.';
       case 'too-many-requests':
-        return 'Too many attempts. Please wait a moment.';
+        return 'Too many attempts. Please wait a moment and try again.';
       case 'network-request-failed':
         return 'No internet connection. Please check your network.';
       default:
-        return 'Authentication error. Please try again.';
+        return 'Authentication failed ($code). Please try again.';
     }
   }
 

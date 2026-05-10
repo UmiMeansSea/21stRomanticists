@@ -196,19 +196,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton(
+                          child: FilledButton(
                             onPressed: () => context.push('/edit-profile').then((_) => _load()),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: AppColors.outlineVariant),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: AppColors.onPrimary,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
                             ),
                             child: Text(
                               'EDIT PROFILE',
                               style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.onSurface,
-                                letterSpacing: 1,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.5,
                               ),
                             ),
                           ),
@@ -217,17 +218,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Container(
                           decoration: BoxDecoration(
                             border: Border.all(color: AppColors.outlineVariant),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(2),
                           ),
                           child: IconButton(
                             icon: const Icon(Icons.share_outlined, size: 20),
+                            color: AppColors.onSurface,
                             onPressed: () {},
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 40),
                   // Stats Row
                   IntrinsicHeight(
                     child: Row(
@@ -263,19 +265,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 TabBar(
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
-                  indicatorColor: AppColors.onSurface,
-                  indicatorWeight: 2,
+                  indicatorColor: AppColors.primary,
+                  indicatorWeight: 3,
+                  indicatorSize: TabBarIndicatorSize.label,
                   labelColor: AppColors.onSurface,
                   unselectedLabelColor: AppColors.outline,
+                  dividerColor: Colors.transparent,
                   labelStyle: GoogleFonts.inter(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2),
                   tabs: const [
                     Tab(text: 'PUBLISHED'),
-                    Tab(text: 'DRAFTS'),
                     Tab(text: 'COLLECTIONS'),
                     Tab(text: 'SAVED'),
+                    Tab(text: 'DRAFTS'),
                   ],
                 ),
               ),
@@ -557,6 +561,7 @@ class _GridCard extends StatelessWidget {
       imageUrl = item.imageUrl;
       title = item.title;
       category = (item.tags != null && item.tags!.isNotEmpty) ? item.tags!.first : 'WORK';
+      route = '/submission/${item.id}';
     } else if (item is Post) {
       imageUrl = item.imageUrl;
       title = item.cleanTitle;
@@ -567,7 +572,7 @@ class _GridCard extends StatelessWidget {
     }
 
     return GestureDetector(
-      onTap: route != null ? () => context.push(route!) : null,
+      onTap: route != null ? () => context.push(route!, extra: item) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

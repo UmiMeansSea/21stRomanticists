@@ -18,16 +18,16 @@ class BookmarksProvider extends ChangeNotifier {
 
   final AuthProvider _auth;
 
-  Set<int> _ids = {};
-  List<Post> _posts = [];
+  Set<String> _ids = {};
+  List<Post> _posts = []; // TODO: Unify with Submissions
   BookmarksStatus _status = BookmarksStatus.initial;
   String? _errorMessage;
 
-  Set<int> get bookmarkedIds => Set.unmodifiable(_ids);
+  Set<String> get bookmarkedIds => Set.unmodifiable(_ids);
   List<Post> get posts => List.unmodifiable(_posts);
   BookmarksStatus get status => _status;
   String? get errorMessage => _errorMessage;
-  bool isBookmarked(int postId) => _ids.contains(postId);
+  bool isBookmarked(String postId) => _ids.contains(postId);
 
   // ─── Auth listener ─────────────────────────────────────────────────────────
 
@@ -46,9 +46,18 @@ class BookmarksProvider extends ChangeNotifier {
     _status = BookmarksStatus.loading;
     notifyListeners();
     try {
+      // For now, only loads WP bookmarks. Community bookmarks are handled by ID.
       final result = await FirebaseService.instance.getBookmarkedPosts(uid);
       _posts = result;
-      _ids = result.map((p) => p.id).toSet();
+      _ids = result.map((p) => p.id.toString()).toSet();
+      
+      // Also fetch any other community bookmark IDs
+      final bookmarks = await FirebaseService.instance.getBookmarks(uid);
+      for (var b in bookmarks) {
+        final id = b['postId']?.toString();
+        if (id != null) _ids.add(id);
+      }
+
       _status = BookmarksStatus.loaded;
       _errorMessage = null;
     } on FirebaseServiceException catch (e) {
@@ -63,33 +72,53 @@ class BookmarksProvider extends ChangeNotifier {
 
   // ─── Toggle (optimistic) ───────────────────────────────────────────────────
 
-  Future<void> toggle(Post post) async {
+  Future<void> toggle({
+    required String id,
+    required String title,
+    required String excerpt,
+    required String? imageUrl,
+    required String author,
+    required DateTime publishedAt,
+    List<int> categories = const [],
+    String slug = '',
+    String link = '',
+  }) async {
     final uid = _auth.user?.uid;
     if (uid == null) return; // must be signed in
 
-    final wasBookmarked = _ids.contains(post.id);
+    final wasBookmarked = _ids.contains(id);
 
     // ── Optimistic update ──
     if (wasBookmarked) {
-      _ids.remove(post.id);
-      _posts.removeWhere((p) => p.id == post.id);
+      _ids.remove(id);
+      _posts.removeWhere((p) => p.id.toString() == id);
     } else {
-      _ids.add(post.id);
-      _posts.insert(0, post);
+      _ids.add(id);
+      // We don't add to _posts here because _posts is specifically List<Post>
     }
     notifyListeners();
 
     // ── Firestore write ──
     try {
-      await FirebaseService.instance.toggleBookmark(uid, post);
+      await FirebaseService.instance.toggleBookmark(
+        uid,
+        id: id,
+        title: title,
+        excerpt: excerpt,
+        imageUrl: imageUrl,
+        author: author,
+        publishedAt: publishedAt,
+        categories: categories,
+        slug: slug,
+        link: link,
+      );
     } catch (_) {
       // Revert on failure
       if (wasBookmarked) {
-        _ids.add(post.id);
-        _posts.insert(0, post);
+        _ids.add(id);
       } else {
-        _ids.remove(post.id);
-        _posts.removeWhere((p) => p.id == post.id);
+        _ids.remove(id);
+        _posts.removeWhere((p) => p.id.toString() == id);
       }
       notifyListeners();
     }

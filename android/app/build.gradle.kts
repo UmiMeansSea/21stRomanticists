@@ -10,6 +10,15 @@ android {
     namespace = "com.example.romanticists_app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+    
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = false
+        }
+    }
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
