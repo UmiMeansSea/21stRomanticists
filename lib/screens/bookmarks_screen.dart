@@ -46,12 +46,12 @@ class BookmarksScreen extends StatelessWidget {
                     ),
                   ),
                   actions: [
-                    if (bm.posts.isNotEmpty)
+                    if (bm.items.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(right: 16),
                         child: Center(
                           child: Text(
-                            '${bm.posts.length} saved',
+                            '${bm.items.length} saved',
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: AppColors.onSurfaceVariant,
@@ -95,7 +95,7 @@ class BookmarksScreen extends StatelessWidget {
       ];
     }
 
-    if (bm.posts.isEmpty) {
+    if (bm.items.isEmpty) {
       return [
         SliverFillRemaining(
           hasScrollBody: false,
@@ -110,13 +110,13 @@ class BookmarksScreen extends StatelessWidget {
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, i) {
-              final post = bm.posts[i];
+              final item = bm.items[i];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: PostCard(post: post, featured: false),
+                child: FeedCard(item: item, featured: false),
               );
             },
-            childCount: bm.posts.length,
+            childCount: bm.items.length,
           ),
         ),
       ),

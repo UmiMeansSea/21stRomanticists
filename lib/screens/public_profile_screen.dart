@@ -44,15 +44,22 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     setState(() => _loading = true);
 
     try {
-      final info = await service.getUserPublicInfo(widget.userId);
-      final allSubs = await service.getUserSubmissions(widget.userId);
+      // Parallelize fetches for better performance
+      final results = await Future.wait([
+        service.getUserPublicInfo(widget.userId),
+        service.getUserSubmissions(widget.userId),
+        service.getFollowerCount(widget.userId),
+        currentUid != null 
+            ? service.isSubscribed(currentUid, widget.userId) 
+            : Future.value(false),
+      ]);
+
+      final info = results[0] as Map<String, dynamic>?;
+      final allSubs = results[1] as List<Submission>;
+      final followers = results[2] as int;
+      final subscribed = results[3] as bool;
+
       final subs = allSubs.where((s) => !s.isAnonymous).toList();
-      final followers = await service.getFollowerCount(widget.userId);
-      
-      bool subscribed = false;
-      if (currentUid != null) {
-        subscribed = await service.isSubscribed(currentUid, widget.userId);
-      }
 
       if (mounted) {
         setState(() {
@@ -64,7 +71,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           _loading = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Error loading profile: $e');
       if (mounted) setState(() => _loading = false);
     }
   }

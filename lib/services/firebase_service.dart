@@ -29,6 +29,8 @@ class FirebaseService {
 
   FirebaseFirestore get _db => FirebaseFirestore.instance;
 
+  final Map<String, Map<String, dynamic>> _userCache = {};
+
   static const String _submissionsCol = 'submissions';
   static const String _usersCol = 'users';
   static const String _bookmarksSub = 'bookmarks';
@@ -223,10 +225,21 @@ class FirebaseService {
   }
 
   /// Returns public info for a user (displayName, photoURL, etc).
+  /// Results are cached in-memory for the duration of the session.
   Future<Map<String, dynamic>?> getUserPublicInfo(String uid) async {
+    if (_userCache.containsKey(uid)) return _userCache[uid];
     try {
       final doc = await _db.collection(_usersCol).doc(uid).get();
-      return doc.data();
+      final data = doc.data();
+      if (data != null) {
+        // Standardize keys
+        final standardized = Map<String, dynamic>.from(data);
+        standardized['displayName'] ??= data['username'] ?? data['name'];
+        standardized['photoURL'] ??= data['profilePicture'] ?? data['avatarUrl'];
+        _userCache[uid] = standardized;
+        return standardized;
+      }
+      return null;
     } catch (_) {
       return null;
     }
@@ -362,8 +375,9 @@ class FirebaseService {
     }
   }
 
-  /// Returns bookmarked [Post] objects for [uid], newest-saved first.
-  Future<List<Post>> getBookmarkedPosts(String uid) async {
+  /// Returns bookmarked feed items for [uid], newest-saved first.
+  /// Handles both WP posts and community submissions.
+  Future<List<FeedItem>> getBookmarkedFeedItems(String uid) async {
     try {
       final snapshot = await _db
           .collection(_usersCol)
@@ -372,23 +386,38 @@ class FirebaseService {
           .orderBy('savedAt', descending: true)
           .get();
 
-      return snapshot.docs.map<Post>((doc) {
+      return snapshot.docs.map<FeedItem>((doc) {
         final d = doc.data();
-        return Post(
-          id: d['postId'] as int,
-          authorId: d['authorId'] as int? ?? 0,
+        final id = d['postId']?.toString() ?? '';
+        final isSubmission = id.startsWith('sub_') || !RegExp(r'^\d+$').hasMatch(id);
+        
+        return FeedItem(
+          uniqueId: id,
+          authorFirebaseId: d['authorFirebaseId'] as String? ?? '',
+          authorName: d['author'] as String? ?? 'Anonymous',
           title: d['title'] as String? ?? '',
-          content: '',
           excerpt: d['excerpt'] as String? ?? '',
-          author: d['author'] as String? ?? '',
-          imageUrl: d['imageUrl'] as String? ?? '',
+          imageUrl: d['imageUrl'] as String?,
           publishedAt: d['publishedAt'] is Timestamp
               ? (d['publishedAt'] as Timestamp).toDate()
               : DateTime.now(),
-          categories: ((d['categories'] as List<dynamic>?) ?? []).cast<int>(),
-          tagNames: ((d['tags'] as List<dynamic>?) ?? []).cast<String>(),
-          slug: d['slug'] as String? ?? '',
-          link: d['link'] as String? ?? '',
+          isSubmission: isSubmission,
+          categoryLabel: d['categoryLabel'] as String? ?? '',
+          tags: ((d['tags'] as List<dynamic>?) ?? []).cast<String>(),
+          wpPost: isSubmission ? null : Post(
+            id: int.tryParse(id) ?? 0,
+            authorId: 0,
+            title: d['title'] as String? ?? '',
+            content: '',
+            excerpt: d['excerpt'] as String? ?? '',
+            author: d['author'] as String? ?? '',
+            imageUrl: d['imageUrl'] as String? ?? '',
+            publishedAt: DateTime.now(),
+            categories: [],
+            tagNames: [],
+            slug: d['slug'] as String? ?? '',
+            link: d['link'] as String? ?? '',
+          ),
         );
       }).toList();
     } on FirebaseException catch (e) {
@@ -408,6 +437,7 @@ class FirebaseService {
     required String excerpt,
     required String? imageUrl,
     required String author,
+    String authorFirebaseId = '',
     required DateTime publishedAt,
     List<int> categories = const [],
     String slug = '',
@@ -431,6 +461,7 @@ class FirebaseService {
           'excerpt': excerpt,
           'imageUrl': imageUrl,
           'author': author,
+          'authorFirebaseId': authorFirebaseId,
           'publishedAt': Timestamp.fromDate(publishedAt),
           'categories': categories,
           'slug': slug,

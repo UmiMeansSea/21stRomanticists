@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:romanticists_app/models/feed_item.dart';
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
@@ -19,12 +20,12 @@ class BookmarksProvider extends ChangeNotifier {
   final AuthProvider _auth;
 
   Set<String> _ids = {};
-  List<Post> _posts = []; // TODO: Unify with Submissions
+  List<FeedItem> _items = [];
   BookmarksStatus _status = BookmarksStatus.initial;
   String? _errorMessage;
 
   Set<String> get bookmarkedIds => Set.unmodifiable(_ids);
-  List<Post> get posts => List.unmodifiable(_posts);
+  List<FeedItem> get items => List.unmodifiable(_items);
   BookmarksStatus get status => _status;
   String? get errorMessage => _errorMessage;
   bool isBookmarked(String postId) => _ids.contains(postId);
@@ -46,17 +47,9 @@ class BookmarksProvider extends ChangeNotifier {
     _status = BookmarksStatus.loading;
     notifyListeners();
     try {
-      // For now, only loads WP bookmarks. Community bookmarks are handled by ID.
-      final result = await FirebaseService.instance.getBookmarkedPosts(uid);
-      _posts = result;
-      _ids = result.map((p) => p.id.toString()).toSet();
-      
-      // Also fetch any other community bookmark IDs
-      final bookmarks = await FirebaseService.instance.getBookmarks(uid);
-      for (var b in bookmarks) {
-        final id = b['postId']?.toString();
-        if (id != null) _ids.add(id);
-      }
+      final results = await FirebaseService.instance.getBookmarkedFeedItems(uid);
+      _items = results;
+      _ids = results.map((i) => i.uniqueId).toSet();
 
       _status = BookmarksStatus.loaded;
       _errorMessage = null;
@@ -78,6 +71,7 @@ class BookmarksProvider extends ChangeNotifier {
     required String excerpt,
     required String? imageUrl,
     required String author,
+    String authorFirebaseId = '',
     required DateTime publishedAt,
     List<int> categories = const [],
     String slug = '',
@@ -91,10 +85,10 @@ class BookmarksProvider extends ChangeNotifier {
     // ── Optimistic update ──
     if (wasBookmarked) {
       _ids.remove(id);
-      _posts.removeWhere((p) => p.id.toString() == id);
+      _items.removeWhere((i) => i.uniqueId == id);
     } else {
       _ids.add(id);
-      // We don't add to _posts here because _posts is specifically List<Post>
+      // We could add a skeleton FeedItem here if we wanted to be truly optimistic
     }
     notifyListeners();
 
@@ -107,6 +101,7 @@ class BookmarksProvider extends ChangeNotifier {
         excerpt: excerpt,
         imageUrl: imageUrl,
         author: author,
+        authorFirebaseId: authorFirebaseId,
         publishedAt: publishedAt,
         categories: categories,
         slug: slug,
@@ -118,7 +113,7 @@ class BookmarksProvider extends ChangeNotifier {
         _ids.add(id);
       } else {
         _ids.remove(id);
-        _posts.removeWhere((p) => p.id.toString() == id);
+        _items.removeWhere((i) => i.uniqueId == id);
       }
       notifyListeners();
     }
@@ -128,7 +123,7 @@ class BookmarksProvider extends ChangeNotifier {
 
   void clear() {
     _ids = {};
-    _posts = [];
+    _items = [];
     _status = BookmarksStatus.initial;
     _errorMessage = null;
     notifyListeners();

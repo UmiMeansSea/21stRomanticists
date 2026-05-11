@@ -73,7 +73,7 @@ class _FeaturedCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const _ShareButton(floating: true, size: 28),
+                        _ShareButton(floating: true, size: 28, title: post.cleanTitle, link: post.link),
                       const SizedBox(width: 8),
                       _BookmarkButton.fromPost(post, floating: true, size: 28),
                     ],
@@ -151,89 +151,179 @@ class _StandardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = post.imageUrl.isNotEmpty;
     return GestureDetector(
       onTap: () => context.push('/post/${post.id}', extra: post),
       child: _CardShell(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Thumbnail
-            if (post.imageUrl.isNotEmpty)
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: CachedNetworkImage(
-                    imageUrl: post.imageUrl,
-                    imageBuilder: (context, imageProvider) => Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image(image: imageProvider, fit: BoxFit.cover),
-                        ClipRect(
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                            child: Container(color: Colors.black.withValues(alpha: 0.1)),
-                          ),
-                        ),
-                        Image(image: imageProvider, fit: BoxFit.contain),
-                      ],
-                    ),
-                    placeholder: (_, __) => Container(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    ),
-                  ),
-                ),
-              ),
+        child: hasImage
+            ? _WpEditorialLayout(post: post, categoryLabel: categoryLabel)
+            : _WpTweetLayout(post: post, categoryLabel: categoryLabel),
+      ),
+    );
+  }
+}
 
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _CommunityBadge(categoryLabel, post.publishedAt),
-                    const SizedBox(height: 8),
-                    Text(
-                      post.cleanTitle,
-                      style: GoogleFonts.ebGaramond(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        height: 1.2,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _AuthorRow(
-                          authorName: post.author,
-                          authorId: post.authorId.toString(),
-                          small: true,
-                        ),
-                        const Spacer(),
-                        const _ShareButton(size: 22),
-                        const SizedBox(width: 16),
-                        _BookmarkButton.fromPost(post, size: 24),
-                        const SizedBox(width: 8),
-                        _MoreOptionsButton(
-                          id: post.id.toString(),
-                          title: post.cleanTitle,
-                          link: post.link,
-                          author: post.author,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+class _WpEditorialLayout extends StatelessWidget {
+  final Post post;
+  final String categoryLabel;
+  const _WpEditorialLayout({required this.post, required this.categoryLabel});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Stack(
+          children: [
+            _PostImage(url: post.imageUrl, height: 220),
+            Positioned(
+              top: 12, right: 12,
+              child: Row(
+                children: [
+                  _ShareButton(floating: true, size: 26, title: post.cleanTitle, link: post.link),
+                  const SizedBox(width: 8),
+                  _BookmarkButton.fromPost(post, floating: true, size: 26),
+                ],
               ),
             ),
           ],
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DateChip(date: post.publishedAt, category: categoryLabel),
+              const SizedBox(height: 10),
+              Text(
+                post.cleanTitle,
+                style: GoogleFonts.ebGaramond(
+                  fontSize: 24, fontWeight: FontWeight.w600, height: 1.2,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                post.cleanExcerpt,
+                style: GoogleFonts.ebGaramond(
+                  fontSize: 16, height: 1.5,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: AppColors.surfaceBright),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _AuthorRow(
+                    authorName: post.author,
+                    authorId: post.authorId.toString(),
+                    small: true,
+                  ),
+                  const Spacer(),
+                  _ShareButton(size: 20, title: post.cleanTitle, link: post.link),
+                  const SizedBox(width: 12),
+                  _BookmarkButton.fromPost(post, size: 22),
+                  const SizedBox(width: 8),
+                  _MoreOptionsButton(
+                    id: post.id.toString(),
+                    title: post.cleanTitle,
+                    link: post.link,
+                    author: post.author,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WpTweetLayout extends StatelessWidget {
+  final Post post;
+  final String categoryLabel;
+  const _WpTweetLayout({required this.post, required this.categoryLabel});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = isDark ? AppColors.romanticPrimary : AppColors.primary;
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(width: 4, color: accentColor),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _AuthorRow(
+                    authorName: post.author,
+                    authorId: post.authorId.toString(),
+                    small: true,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '\u201C',
+                    style: GoogleFonts.ebGaramond(
+                      fontSize: 56, height: 0.6,
+                      color: accentColor.withValues(alpha: 0.3),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    post.cleanTitle,
+                    style: GoogleFonts.ebGaramond(
+                      fontSize: 22, fontWeight: FontWeight.w600, height: 1.2,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    post.cleanExcerpt,
+                    style: GoogleFonts.ebGaramond(
+                      fontSize: 17, height: 1.6, fontStyle: FontStyle.italic,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 6, overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 16),
+                  _DateChip(date: post.publishedAt, category: categoryLabel),
+                  const SizedBox(height: 12),
+                  const Divider(height: 1, color: AppColors.surfaceBright),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _AuthorRow(
+                        authorName: post.author,
+                        authorId: post.authorId.toString(),
+                        small: true,
+                      ),
+                      const Spacer(),
+                      _ShareButton(size: 20, title: post.cleanTitle, link: post.link),
+                      const SizedBox(width: 12),
+                      _BookmarkButton.fromPost(post, size: 22),
+                      const SizedBox(width: 8),
+                      _MoreOptionsButton(
+                        id: post.id.toString(),
+                        title: post.cleanTitle,
+                        link: post.link,
+                        author: post.author,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -412,8 +502,8 @@ class _AuthorRow extends StatelessWidget {
         builder: (context, snapshot) {
           final isDark = Theme.of(context).brightness == Brightness.dark;
           final info = snapshot.data;
-          final username = isAnonymous ? 'Anonymous' : (info?['username'] as String? ?? authorName);
-          final avatarUrl = info?['photoURL'] as String? ?? info?['profilePicture'] as String?;
+          final username = isAnonymous ? 'Anonymous' : (info?['displayName'] as String? ?? authorName);
+          final avatarUrl = info?['photoURL'] as String?;
 
           return Row(
             mainAxisSize: MainAxisSize.min,
@@ -669,6 +759,7 @@ class _BookmarkButton extends StatelessWidget {
   final String excerpt;
   final String? imageUrl;
   final String author;
+  final String authorFirebaseId;
   final DateTime publishedAt;
   final List<int> categories;
   final String slug;
@@ -681,6 +772,7 @@ class _BookmarkButton extends StatelessWidget {
     required this.excerpt,
     this.imageUrl,
     required this.author,
+    this.authorFirebaseId = '',
     required this.publishedAt,
     this.categories = const [],
     this.slug = '',
@@ -698,6 +790,7 @@ class _BookmarkButton extends StatelessWidget {
       excerpt: post.cleanExcerpt,
       imageUrl: post.imageUrl,
       author: post.author,
+      authorFirebaseId: '', // WP posts don't have Firebase IDs
       publishedAt: post.publishedAt,
       categories: post.categories,
       slug: post.slug,
@@ -714,6 +807,7 @@ class _BookmarkButton extends StatelessWidget {
       excerpt: item.excerpt,
       imageUrl: item.imageUrl,
       author: item.authorName,
+      authorFirebaseId: item.authorFirebaseId,
       publishedAt: item.publishedAt,
       size: size,
       floating: floating,
@@ -775,6 +869,7 @@ class _BookmarkButton extends StatelessWidget {
               excerpt: excerpt,
               imageUrl: imageUrl,
               author: author,
+              authorFirebaseId: authorFirebaseId,
               publishedAt: publishedAt,
               categories: categories,
               slug: slug,
@@ -908,9 +1003,16 @@ class _MoreOptionsButton extends StatelessWidget {
 class _ShareButton extends StatelessWidget {
   final bool floating;
   final double size;
-  
-  const _ShareButton({this.floating = false, this.size = 20});
-  
+  final String title;
+  final String link;
+
+  const _ShareButton({
+    this.floating = false,
+    this.size = 20,
+    this.title = '',
+    this.link = '',
+  });
+
   @override
   Widget build(BuildContext context) {
     Widget button = Container(
@@ -937,7 +1039,12 @@ class _ShareButton extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        // Implement share logic later
+        final shareText = title.isNotEmpty && link.isNotEmpty
+            ? '$title\n\nRead it on The 21st Romanticists:\n$link'
+            : title.isNotEmpty
+                ? title
+                : 'Check out this post on The 21st Romanticists!';
+        Share.share(shareText);
       },
       behavior: HitTestBehavior.opaque,
       child: Padding(
@@ -1111,217 +1218,211 @@ class FeedCard extends StatelessWidget {
         featured: featured,
       );
     }
-    // Community submission
-    return featured
-        ? _FeaturedSubmissionCard(item: item)
-        : _StandardSubmissionCard(item: item);
+    // Community submission — single unified card
+    return _UnifiedSubmissionCard(item: item);
   }
 }
 
-class _FeaturedSubmissionCard extends StatelessWidget {
+/// Single unified card for community submissions.
+/// Shows tweet-style (no image) or editorial (with image).
+class _UnifiedSubmissionCard extends StatelessWidget {
   final FeedItem item;
-  const _FeaturedSubmissionCard({required this.item});
+  const _UnifiedSubmissionCard({required this.item});
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = item.imageUrl != null && item.imageUrl!.isNotEmpty;
+    final isAnon = item.submission?.isAnonymous ?? false;
+
     return GestureDetector(
       onTap: () => context.push('/submission/${item.uniqueId}', extra: item.submission),
       child: _CardShell(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: IntrinsicHeight(
+          child: hasImage
+              ? _EditorialLayout(item: item, isAnon: isAnon)
+              : _TweetLayout(item: item, isAnon: isAnon),
+        ),
+      ),
+    );
+  }
+}
+
+/// Editorial layout — has hero image on top.
+class _EditorialLayout extends StatelessWidget {
+  final FeedItem item;
+  final bool isAnon;
+  const _EditorialLayout({required this.item, required this.isAnon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Stack(
           children: [
-            if (item.imageUrl != null)
-              Stack(
+            _PostImage(url: item.imageUrl!, height: 220),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Row(
                 children: [
-                  _PostImage(url: item.imageUrl!, height: 220),
-                  Positioned(
-                    top: 16,
-                    right: 16,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const _ShareButton(floating: true, size: 28),
-                        const SizedBox(width: 8),
-                        _BookmarkButton.fromItem(item, floating: true, size: 28),
-                      ],
-                    ),
-                  ),
+                  _ShareButton(floating: true, size: 26, title: item.title, link: item.submission?.id ?? ''),
+                  const SizedBox(width: 8),
+                  _BookmarkButton.fromItem(item, floating: true, size: 26),
                 ],
               ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _CommunityBadge(item.categoryLabel, item.publishedAt),
+              const SizedBox(height: 10),
+              Text(
+                item.title,
+                style: GoogleFonts.ebGaramond(
+                  fontSize: 24, fontWeight: FontWeight.w600, height: 1.2,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                item.excerpt,
+                style: GoogleFonts.ebGaramond(
+                  fontSize: 16, height: 1.5,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: AppColors.surfaceBright),
+              const SizedBox(height: 12),
+              _BottomActionBar(item: item, isAnon: isAnon),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Tweet-style layout — no image, shows full text prominently.
+class _TweetLayout extends StatelessWidget {
+  final FeedItem item;
+  final bool isAnon;
+  const _TweetLayout({required this.item, required this.isAnon});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = isDark ? AppColors.romanticPrimary : AppColors.primary;
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Left accent bar
+          Container(width: 4, color: accentColor),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 20),
-                  _CommunityBadge(item.categoryLabel, item.publishedAt),
+                  // Author row
+                  _AuthorRow(
+                    authorName: item.authorName,
+                    authorId: item.authorFirebaseId,
+                    small: true,
+                    isAnonymous: isAnon,
+                  ),
                   const SizedBox(height: 16),
+                  // Decorative opening quote
+                  Text(
+                    '\u201C',
+                    style: GoogleFonts.ebGaramond(
+                      fontSize: 56, height: 0.6,
+                      color: accentColor.withValues(alpha: 0.3),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Title
                   Text(
                     item.title,
                     style: GoogleFonts.ebGaramond(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w600,
-                      height: 1.1,
-                      letterSpacing: -0.5,
+                      fontSize: 22, fontWeight: FontWeight.w600, height: 1.2,
                       color: Theme.of(context).colorScheme.onSurface,
                     ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
+                  // Content preview — show more lines since no image
                   Text(
                     item.excerpt,
                     style: GoogleFonts.ebGaramond(
-                      fontSize: 18,
-                      height: 1.6,
+                      fontSize: 17, height: 1.6, fontStyle: FontStyle.italic,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: 6, overflow: TextOverflow.ellipsis,
                   ),
-                  if (item.tags.isNotEmpty) ...[  
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: item.tags
-                          .map((t) => _InlineTag(t))
-                          .toList(),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+                  _CommunityBadge(item.categoryLabel, item.publishedAt),
+                  const SizedBox(height: 12),
                   const Divider(height: 1, color: AppColors.surfaceBright),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      _AuthorRow(
-                        authorName: item.authorName,
-                        authorId: item.authorFirebaseId,
-                        isAnonymous: item.submission?.isAnonymous ?? false,
-                      ),
-                      const Spacer(),
-                      _EngagementRow(
-                        likeCount: item.likeCount,
-                        commentCount: item.commentCount,
-                        reshareCount: item.reshareCount,
-                        isLiked: item.isLiked,
-                        isReshared: item.isReshared,
-                        onComment: () {
-                          if (item.isSubmission) {
-                            context.push('/submission/${item.uniqueId}?comment=true', extra: item.submission);
-                          } else {
-                            context.push('/post/${item.wpPost!.id}?comment=true', extra: item.wpPost);
-                          }
-                        },
-                        onLike: () => context.read<PostsProvider>().toggleLike(item),
-                        onReshare: () => context.read<PostsProvider>().toggleReshare(item),
-                      ),
-                    ],
-                  ),
+                  const SizedBox(height: 12),
+                  _BottomActionBar(item: item, isAnon: isAnon),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _StandardSubmissionCard extends StatelessWidget {
+/// Shared bottom action bar for all submission card types.
+class _BottomActionBar extends StatelessWidget {
   final FeedItem item;
-  const _StandardSubmissionCard({required this.item});
+  final bool isAnon;
+  const _BottomActionBar({required this.item, required this.isAnon});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push('/submission/${item.uniqueId}', extra: item.submission),
-      child: _CardShell(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (item.imageUrl != null)
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                ),
-                child: SizedBox(
-                  width: 140,
-                  height: 140, // Match the typical height of the content side
-                  child: _PostImage(
-                    url: item.imageUrl!,
-                    aspectRatio: 1, // Keep it square but use the "fit" logic
-                  ),
-                ),
-              ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _CommunityBadge(item.categoryLabel, item.publishedAt),
-                    const SizedBox(height: 8),
-                    Text(
-                      item.title,
-                      style: GoogleFonts.ebGaramond(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        height: 1.2,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _AuthorRow(
-                          authorName: item.authorName,
-                          authorId: item.authorFirebaseId,
-                          small: true,
-                          isAnonymous: item.submission?.isAnonymous ?? false,
-                        ),
-                        const Spacer(),
-                        _EngagementRow(
-                          likeCount: item.likeCount,
-                          commentCount: item.commentCount,
-                          reshareCount: item.reshareCount,
-                          isLiked: item.isLiked,
-                          isReshared: item.isReshared,
-                          small: true,
-                          onComment: () => context.push(
-                              '/submission/${item.uniqueId}?comment=true',
-                              extra: item.submission),
-                          onLike: () =>
-                              context.read<PostsProvider>().toggleLike(item),
-                          onReshare: () =>
-                              context.read<PostsProvider>().toggleReshare(item),
-                        ),
-                        const SizedBox(width: 16),
-                        const _ShareButton(size: 22),
-                        const SizedBox(width: 16),
-                        _BookmarkButton.fromItem(item, size: 24),
-                        const SizedBox(width: 8),
-                        _MoreOptionsButton(
-                          id: item.uniqueId,
-                          title: item.title,
-                          link: item.wpPost?.link ?? '',
-                          author: item.authorName,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+    return Row(
+      children: [
+        _EngagementRow(
+          likeCount: item.likeCount,
+          commentCount: item.commentCount,
+          reshareCount: item.reshareCount,
+          isLiked: item.isLiked,
+          isReshared: item.isReshared,
+          small: true,
+          onComment: () => context.push(
+              '/submission/${item.uniqueId}?comment=true', extra: item.submission),
+          onLike: () => context.read<PostsProvider>().toggleLike(item),
+          onReshare: () => context.read<PostsProvider>().toggleReshare(item),
         ),
-      ),
+        const Spacer(),
+        _ShareButton(size: 20, title: item.title, link: item.wpPost?.link ?? ''),
+        const SizedBox(width: 12),
+        _BookmarkButton.fromItem(item, size: 22),
+        const SizedBox(width: 8),
+        _MoreOptionsButton(
+          id: item.uniqueId,
+          title: item.title,
+          link: item.wpPost?.link ?? '',
+          author: item.authorName,
+        ),
+      ],
     );
   }
 }
+
 
 class _CommunityBadge extends StatelessWidget {
   final String category;

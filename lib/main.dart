@@ -28,25 +28,71 @@ import 'package:romanticists_app/services/notification_service.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/widgets/app_shell.dart';
 
-// ─── NOTE ──────────────────────────────────────────────────────────────────
-// Firebase is NOT initialised yet — that happens on Day 2 once you add the
-// google-services.json / GoogleService-Info.plist to the project.
-// Uncomment the lines below after running `flutterfire configure`.
-//
 import 'package:firebase_core/firebase_core.dart';
 import 'package:romanticists_app/firebase_options.dart';
-// ───────────────────────────────────────────────────────────────────────────
+
+// ─── ANIMATION: Duration constants ──────────────────────────────────────────
+// Centralised so every page transition shares the same timing.
+const Duration _kPageTransitionDuration = Duration(milliseconds: 280);
+const Duration _kTapAnimDuration        = Duration(milliseconds: 120);
+
+// ─── ANIMATION: Custom page-transition builder ───────────────────────────────
+// Replaces NoTransitionPage for full-screen routes.
+// Combines a right-to-left SlideTransition with a FadeTransition for a
+// native-feeling push animation at 60 fps.
+CustomTransitionPage<T> _slideFadePage<T>({
+  required BuildContext context,
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage<T>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: _kPageTransitionDuration,
+    reverseTransitionDuration: _kPageTransitionDuration,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      // Slide from right edge (x=1.0) into place (x=0.0).
+      final slide = Tween<Offset>(
+        begin: const Offset(1.0, 0.0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ));
+
+      // Simultaneous fade (0.0 → 1.0) so the slide never feels abrupt.
+      final fade = CurvedAnimation(
+        parent: animation,
+        curve: const Interval(0.0, 0.7, curve: Curves.easeIn),
+      );
+
+      return FadeTransition(
+        opacity: fade,
+        child: SlideTransition(position: slide, child: child),
+      );
+    },
+  );
+}
+
+// ─── ANIMATION: Shell-tab transition ────────────────────────────────────────
+// Bottom-nav tabs feel better with a simple cross-fade instead of a slide
+// (avoids the "flying in from the side" effect inside the shell).
+NoTransitionPage<T> _tabPage<T>({
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return NoTransitionPage<T>(key: state.pageKey, child: child);
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Lock to portrait — typical for a reading app.
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // Status bar style — transparent so our background shows through.
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -56,7 +102,6 @@ void main() async {
     ),
   );
 
-  // ── Firebase init — guarded so a slow/failing init never blocks the app ──
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -64,9 +109,6 @@ void main() async {
     await NotificationService.instance.init();
     debugPrint('[Firebase] initialized successfully');
   } catch (e) {
-    // Firebase failed or timed out — the app still loads.
-    // Firestore calls in FirebaseService will throw FirebaseServiceException
-    // which is handled gracefully in the UI.
     debugPrint('[Firebase] init failed: $e');
   }
 
@@ -121,157 +163,174 @@ final GoRouter _router = GoRouter(
 
   routes: [
     // ── Shell route — wraps screens that show the bottom nav bar ──────────
+    // [ANIMATION] Bottom-nav tabs use NoTransitionPage (instant swap) so the
+    // tab bar itself provides the navigation affordance without a slide.
     ShellRoute(
       builder: (context, state, child) => AppShell(child: child),
       routes: [
         GoRoute(
           path: '/',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: HomeScreen(),
-          ),
+          pageBuilder: (context, state) => _tabPage(state: state, child: const HomeScreen()),
         ),
         GoRoute(
           path: '/notifications',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: NotificationsScreen(),
-          ),
+          pageBuilder: (context, state) => _tabPage(state: state, child: const NotificationsScreen()),
         ),
         GoRoute(
           path: '/write',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: SubmitScreen(),
-          ),
+          pageBuilder: (context, state) => _tabPage(state: state, child: const SubmitScreen()),
         ),
         GoRoute(
           path: '/bookmarks',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: BookmarksScreen(),
-          ),
+          pageBuilder: (context, state) => _tabPage(state: state, child: const BookmarksScreen()),
         ),
         GoRoute(
           path: '/profile',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: ProfileScreen(),
-          ),
+          pageBuilder: (context, state) => _tabPage(state: state, child: const ProfileScreen()),
         ),
         GoRoute(
           path: '/settings',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: SettingsScreen(),
-          ),
+          pageBuilder: (context, state) => _tabPage(state: state, child: const SettingsScreen()),
         ),
       ],
     ),
 
-    // ── Full-screen routes — no bottom nav ────────────────────────────────
+    // ── Full-screen routes — slide-fade transition ─────────────────────────
+    // [ANIMATION] All detail/full-screen pages use _slideFadePage so pushing
+    // them onto the stack feels native (slides in from the right).
     GoRoute(
       path: '/post/:id',
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final postId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
         final post = state.extra as Post?;
         final scrollToComments = state.uri.queryParameters['comment'] == 'true';
-        return PostDetailScreen(
-          postId: postId, 
-          initialPost: post,
-          scrollToComments: scrollToComments,
+        return _slideFadePage(
+          context: context,
+          state: state,
+          child: PostDetailScreen(
+            postId: postId,
+            initialPost: post,
+            scrollToComments: scrollToComments,
+          ),
         );
       },
     ),
 
     GoRoute(
       path: '/submission/:id',
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final id = state.pathParameters['id'] ?? '';
         final submission = state.extra as Submission?;
         final scrollToComments = state.uri.queryParameters['comment'] == 'true';
-        
+
         if (submission != null) {
-          return SubmissionDetailScreen(
-            submission: submission,
-            scrollToComments: scrollToComments,
+          return _slideFadePage(
+            context: context,
+            state: state,
+            child: SubmissionDetailScreen(
+              submission: submission,
+              scrollToComments: scrollToComments,
+            ),
           );
         }
 
-        // Fallback for direct links or refreshes
-        return FutureBuilder<Submission?>(
-          future: FirebaseService.instance.getSubmissionById(id.replaceFirst('sub_', '')),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                backgroundColor: AppColors.background,
-                body: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-              );
-            }
-            if (snapshot.hasError || !snapshot.hasData) {
-              return Scaffold(
-                backgroundColor: AppColors.background,
-                body: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.search_off_outlined, size: 48, color: AppColors.outline),
-                      const SizedBox(height: 16),
-                      Text('Submission not found.', style: GoogleFonts.ebGaramond(fontSize: 18)),
-                      TextButton(onPressed: () => context.go('/'), child: const Text('Go Home')),
-                    ],
+        // Fallback: fetch from Firestore for deep links / refresh.
+        return _slideFadePage(
+          context: context,
+          state: state,
+          child: FutureBuilder<Submission?>(
+            future: FirebaseService.instance.getSubmissionById(
+              id.replaceFirst('sub_', ''),
+            ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  backgroundColor: AppColors.background,
+                  body: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                );
+              }
+              if (snapshot.hasError || !snapshot.hasData) {
+                return Scaffold(
+                  backgroundColor: AppColors.background,
+                  body: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.search_off_outlined, size: 48, color: AppColors.outline),
+                        const SizedBox(height: 16),
+                        Text('Submission not found.', style: GoogleFonts.ebGaramond(fontSize: 18)),
+                        TextButton(onPressed: () => context.go('/'), child: const Text('Go Home')),
+                      ],
+                    ),
                   ),
-                ),
+                );
+              }
+              return SubmissionDetailScreen(
+                submission: snapshot.data!,
+                scrollToComments: scrollToComments,
               );
-            }
-            return SubmissionDetailScreen(
-              submission: snapshot.data!,
-              scrollToComments: scrollToComments,
-            );
-          },
+            },
+          ),
         );
       },
     ),
 
     GoRoute(
       path: '/category/:id',
-      builder: (context, state) {
-        final categoryId =
-            int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
-        final categoryName =
-            state.uri.queryParameters['name'] ?? 'Category';
-        return CategoryScreen(
-          categoryId: categoryId,
-          categoryName: categoryName,
+      pageBuilder: (context, state) {
+        final categoryId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+        final categoryName = state.uri.queryParameters['name'] ?? 'Category';
+        return _slideFadePage(
+          context: context,
+          state: state,
+          child: CategoryScreen(categoryId: categoryId, categoryName: categoryName),
         );
       },
     ),
 
     GoRoute(
       path: '/user/:id',
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final userId = state.pathParameters['id'] ?? '';
         final name = state.uri.queryParameters['name'];
-        return PublicProfileScreen(userId: userId, initialName: name);
+        return _slideFadePage(
+          context: context,
+          state: state,
+          child: PublicProfileScreen(userId: userId, initialName: name),
+        );
       },
     ),
 
     GoRoute(
       path: '/edit-profile',
-      builder: (context, state) => const EditProfileScreen(),
+      pageBuilder: (context, state) => _slideFadePage(
+        context: context,
+        state: state,
+        child: const EditProfileScreen(),
+      ),
     ),
 
     GoRoute(
       path: '/collection/:uid/:id',
-      builder: (context, state) {
-        final uid = state.pathParameters['uid'] ?? '';
+      pageBuilder: (context, state) {
+        final uid   = state.pathParameters['uid'] ?? '';
         final colId = state.pathParameters['id'] ?? '';
-        final name = state.uri.queryParameters['name'] ?? 'Collection';
-        return CollectionDetailScreen(
-          uid: uid,
-          collectionId: colId,
-          collectionName: name,
+        final name  = state.uri.queryParameters['name'] ?? 'Collection';
+        return _slideFadePage(
+          context: context,
+          state: state,
+          child: CollectionDetailScreen(uid: uid, collectionId: colId, collectionName: name),
         );
       },
     ),
 
     GoRoute(
       path: '/login',
-      builder: (context, state) => const LoginScreen(),
+      pageBuilder: (context, state) => _slideFadePage(
+        context: context,
+        state: state,
+        child: const LoginScreen(),
+      ),
     ),
   ],
 
@@ -284,10 +343,7 @@ final GoRouter _router = GoRouter(
         children: [
           const Icon(Icons.error_outline, size: 56, color: AppColors.outline),
           const SizedBox(height: 16),
-          Text(
-            'Page not found',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
+          Text('Page not found', style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 24),
           OutlinedButton(
             onPressed: () => context.go('/'),
@@ -299,3 +355,121 @@ final GoRouter _router = GoRouter(
   ),
 );
 
+// ─── ANIMATION: AnimatedTapButton ────────────────────────────────────────────
+//
+// A reusable wrapper that gives any child a 60 fps scale-down micro-interaction
+// on press plus the standard ink ripple.  Drop it around any button, list tile,
+// card, or icon you want to feel tappable.
+//
+// Usage:
+//   AnimatedTapButton(
+//     onTap: () => doSomething(),
+//     child: MyWidget(),
+//   );
+class AnimatedTapButton extends StatefulWidget {
+  const AnimatedTapButton({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.onLongPress,
+    // How far to scale down (0.95 = 5% shrink — matches iOS feel).
+    this.scaleFactor = 0.95,
+    this.borderRadius = BorderRadius.zero,
+    this.splashColor,
+    this.highlightColor,
+    this.enabled = true,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final double scaleFactor;
+  final BorderRadius borderRadius;
+  final Color? splashColor;
+  final Color? highlightColor;
+  final bool enabled;
+
+  @override
+  State<AnimatedTapButton> createState() => _AnimatedTapButtonState();
+}
+
+class _AnimatedTapButtonState extends State<AnimatedTapButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: _kTapAnimDuration,
+      // Immediately snaps back on release without blocking user input.
+      reverseDuration: const Duration(milliseconds: 180),
+      lowerBound: 0.0,
+      upperBound: 1.0,
+      value: 1.0,
+    );
+
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: widget.scaleFactor,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    if (!widget.enabled) return;
+    // Drive controller forward (scale down).
+    _controller.animateTo(0.0);
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    if (!widget.enabled) return;
+    // Animate back to 1.0 (full size).
+    _controller.animateTo(1.0);
+  }
+
+  void _onTapCancel() {
+    if (!widget.enabled) return;
+    _controller.animateTo(1.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return GestureDetector(
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
+      child: ScaleTransition(
+        scale: _scale,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: widget.borderRadius,
+          child: InkWell(
+            onTap: widget.enabled ? widget.onTap : null,
+            onLongPress: widget.enabled ? widget.onLongPress : null,
+            borderRadius: widget.borderRadius,
+            // [ANIMATION] Splash colour inherits theme primary with low opacity
+            // so it works in both light and dark mode automatically.
+            splashColor: widget.splashColor
+                ?? theme.colorScheme.primary.withValues(alpha: 0.12),
+            highlightColor: widget.highlightColor
+                ?? theme.colorScheme.primary.withValues(alpha: 0.06),
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
+}
