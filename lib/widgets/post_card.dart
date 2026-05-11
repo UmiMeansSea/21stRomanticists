@@ -16,6 +16,7 @@ import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:romanticists_app/app_theme.dart';
+import 'package:romanticists_app/services/feed_image_cache.dart';
 
 /// Editorial post card — mirrors the Stitch design's surface-container-low
 /// cards with minimal borders, serif headings, and clean typography.
@@ -404,6 +405,7 @@ class _PostImage extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         child: CachedNetworkImage(
           imageUrl: url,
+          cacheManager: FeedImageCacheManager.instance,
           imageBuilder: (context, imageProvider) => Stack(
             fit: StackFit.expand,
             children: [

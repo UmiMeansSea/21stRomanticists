@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/models/category.dart';
 
@@ -31,6 +33,45 @@ class WpApiService {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   };
+
+  // ─── Local Cache Helpers (Stale-While-Revalidate) ─────────────────────────
+
+  static const String _cacheKey = 'wp_posts_cache_v1';
+
+  /// Reads the cached page-1 posts from SharedPreferences.
+  /// Returns an empty list on cache miss or parse failure.
+  Future<List<Post>> readCachedPosts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_cacheKey);
+      if (raw == null) return [];
+      final list = jsonDecode(raw) as List<dynamic>;
+      return list
+          .map((item) {
+            try {
+              return Post.fromJson(item as Map<String, dynamic>);
+            } catch (_) {
+              return null;
+            }
+          })
+          .whereType<Post>()
+          .toList();
+    } catch (e) {
+      debugPrint('Cache read failed: $e');
+      return [];
+    }
+  }
+
+  /// Serializes [posts] to SharedPreferences, overwriting any prior cache.
+  Future<void> writeCachedPosts(List<Post> posts) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = jsonEncode(posts.map((p) => p.toJson()).toList());
+      await prefs.setString(_cacheKey, encoded);
+    } catch (e) {
+      debugPrint('Cache write failed: $e');
+    }
+  }
 
   // ─── Internal Helpers ──────────────────────────────────────────────────────
 

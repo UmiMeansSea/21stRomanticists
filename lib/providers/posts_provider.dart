@@ -44,6 +44,9 @@ class PostsProvider extends ChangeNotifier {
   String? _selectedTag;
   List<String> _wpTags = [];
 
+  // Guard against concurrent background revalidation calls
+  bool _isFetchingFresh = false;
+
   // ─── Getters ───────────────────────────────────────────────────────────────
   List<Category> get categories => List.unmodifiable(_categories);
   Category? get selectedCategory => _selectedCategory;
@@ -235,11 +238,80 @@ class PostsProvider extends ChangeNotifier {
 
   // ─── Initialization ────────────────────────────────────────────────────────
   Future<void> _init() async {
-    await Future.wait([
-      _loadCategories(),
-      _loadTags(),
-      _loadPosts(reset: true),
-    ]);
+    // Load categories/tags in parallel (fast, can be cached later too)
+    unawaited(Future.wait([_loadCategories(), _loadTags()]));
+
+    // ── STEP A: Show cached posts INSTANTLY ───────────────────────────────────
+    // This makes the UI appear full and usable within ~1 frame.
+    final cached = await _api.readCachedPosts();
+    if (cached.isNotEmpty) {
+      _posts = cached;
+      _status = PostsStatus.success;
+      notifyListeners();
+    }
+
+    // ── STEP B: Silently fetch Firestore submissions ──────────────────────────
+    unawaited(_fetchSubmissions());
+
+    // ── STEP C: Silently revalidate WP posts from network ─────────────────────
+    // Only show loading spinner if cache was empty (first launch).
+    if (cached.isEmpty) {
+      _status = PostsStatus.loading;
+      notifyListeners();
+    }
+    await _revalidateWpPosts();
+  }
+
+  /// Fetches fresh WP posts from the network (page 1).
+  /// Compares with current cache; if new posts exist, inserts them at the top.
+  Future<void> _revalidateWpPosts() async {
+    if (_isFetchingFresh) return;
+    _isFetchingFresh = true;
+    try {
+      _totalPages = await _api.fetchTotalPages();
+      final fresh = await _api.fetchPosts(page: 1);
+
+      if (fresh.isEmpty) {
+        if (_posts.isEmpty) _status = PostsStatus.failure;
+        return;
+      }
+
+      // ── STEP C: Compare fresh vs. cached ─────────────────────────────────
+      // Find posts whose IDs are NOT in the current local list.
+      final existingIds = _posts.map((p) => p.id).toSet();
+      final newPosts = fresh.where((p) => !existingIds.contains(p.id)).toList();
+
+      if (newPosts.isNotEmpty) {
+        // Inject new posts at the TOP of the feed.
+        _posts = [...newPosts, ..._posts];
+      } else {
+        // Even if no new posts, update existing ones with fresh data
+        // (e.g. updated titles, images from WP edits).
+        final freshById = {for (final p in fresh) p.id: p};
+        _posts = _posts.map((p) => freshById[p.id] ?? p).toList();
+      }
+
+      // Overwrite disk cache with latest data.
+      unawaited(_api.writeCachedPosts(fresh));
+
+      _status = PostsStatus.success;
+    } catch (e) {
+      debugPrint('WP revalidation failed: $e');
+      // Keep showing cached data; don't change status if we already have posts.
+      if (_posts.isEmpty) _status = PostsStatus.failure;
+    } finally {
+      _isFetchingFresh = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _fetchSubmissions() async {
+    try {
+      _submissions = await FirebaseService.instance.getPublishedSubmissions();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Firestore submissions failed: $e');
+    }
   }
 
   Future<void> _loadTags() async {
@@ -260,17 +332,18 @@ class PostsProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  // ─── Load Posts ────────────────────────────────────────────────────────────
+  // ─── Load Posts (pagination + filter reloads) ──────────────────────────────
   Future<void> _loadPosts({bool reset = false}) async {
     if (_status == PostsStatus.loading && !reset) return;
-    
+
     if (reset) {
       _currentPage = 1;
-      _posts = [];
+      // Don't clear _posts immediately on reset if we have cache — show stale.
+      if (_posts.isEmpty) {
+        _status = PostsStatus.loading;
+        notifyListeners();
+      }
     }
-
-    _status = PostsStatus.loading;
-    notifyListeners();
 
     try {
       // 1. Fetch WordPress posts
@@ -293,10 +366,14 @@ class PostsProvider extends ChangeNotifier {
           );
         }
         _posts = reset ? results : [..._posts, ...results];
+
+        // Only update the disk cache when fetching unfiltered page 1
+        if (reset && _selectedCategory == null && _selectedTag == null && _searchQuery.isEmpty) {
+          unawaited(_api.writeCachedPosts(results));
+        }
       } catch (e) {
         debugPrint('WP load failed: $e');
-        // If it's a reset and WP fails, we still want to try Firestore
-        if (reset) _posts = [];
+        if (reset) _posts = _posts.isEmpty ? [] : _posts; // keep stale
       }
 
       // 2. Fetch Firestore submissions (only on reset)
@@ -330,7 +407,11 @@ class PostsProvider extends ChangeNotifier {
   }
 
   // ─── Public Actions ────────────────────────────────────────────────────────
-  Future<void> refresh() => _loadPosts(reset: true);
+  /// Pull-to-refresh: show stale data, revalidate silently in background.
+  Future<void> refresh() async {
+    _currentPage = 1;
+    await Future.wait([_revalidateWpPosts(), _fetchSubmissions()]);
+  }
 
   Future<void> loadMore() async {
     if (!hasMore || isLoadingMore) return;

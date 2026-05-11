@@ -48,43 +48,64 @@ class Post {
   String get cleanTitle => _stripHtml(title);
 
   factory Post.fromJson(Map<String, dynamic> json) {
-    // Safely extract author from _embedded
+    // ── Support BOTH the full WP API response (with _embedded) ──────────────
+    // ── AND the flat cached format written by toJson() ───────────────────────
+
     String authorName = 'Anonymous';
     try {
-      final embedded = json['_embedded'] as Map<String, dynamic>?;
-      final authorList = embedded?['author'] as List<dynamic>?;
-      if (authorList != null && authorList.isNotEmpty) {
-        authorName = (authorList[0] as Map<String, dynamic>)['name'] as String? ?? 'Anonymous';
+      if (json.containsKey('_embedded')) {
+        // Full WP API response
+        final embedded = json['_embedded'] as Map<String, dynamic>?;
+        final authorList = embedded?['author'] as List<dynamic>?;
+        if (authorList != null && authorList.isNotEmpty) {
+          authorName = (authorList[0] as Map<String, dynamic>)['name'] as String? ?? 'Anonymous';
+        }
+      } else if (json.containsKey('authorName')) {
+        // Flat cache format
+        authorName = json['authorName'] as String? ?? 'Anonymous';
       }
     } catch (_) {}
 
-    // Safely extract featured image URL
     String featuredImage = '';
     try {
-      final embedded = json['_embedded'] as Map<String, dynamic>?;
-      final mediaList = embedded?['wp:featuredmedia'] as List<dynamic>?;
-      if (mediaList != null && mediaList.isNotEmpty) {
-        featuredImage = (mediaList[0] as Map<String, dynamic>)['source_url'] as String? ?? '';
+      if (json.containsKey('_embedded')) {
+        final embedded = json['_embedded'] as Map<String, dynamic>?;
+        final mediaList = embedded?['wp:featuredmedia'] as List<dynamic>?;
+        if (mediaList != null && mediaList.isNotEmpty) {
+          featuredImage = (mediaList[0] as Map<String, dynamic>)['source_url'] as String? ?? '';
+        }
+      } else {
+        featuredImage = json['imageUrl'] as String? ?? '';
       }
     } catch (_) {}
 
-    // Safely extract tags from _embedded
     List<String> tags = [];
     try {
-      final embedded = json['_embedded'] as Map<String, dynamic>?;
-      final termList = embedded?['wp:term'] as List<dynamic>?;
-      if (termList != null && termList.length > 1) {
-        final wpTags = termList[1] as List<dynamic>;
-        tags = wpTags.map((t) => (t as Map<String, dynamic>)['name'] as String).toList();
+      if (json.containsKey('_embedded')) {
+        final embedded = json['_embedded'] as Map<String, dynamic>?;
+        final termList = embedded?['wp:term'] as List<dynamic>?;
+        if (termList != null && termList.length > 1) {
+          final wpTags = termList[1] as List<dynamic>;
+          tags = wpTags.map((t) => (t as Map<String, dynamic>)['name'] as String).toList();
+        }
+      } else {
+        tags = ((json['tagNames'] as List<dynamic>?) ?? []).cast<String>();
       }
     } catch (_) {}
+
+    // Title/content/excerpt: handle both rendered-map and flat string
+    String parseRendered(dynamic val) {
+      if (val is Map) return val['rendered'] as String? ?? '';
+      if (val is String) return val;
+      return '';
+    }
 
     return Post(
       id: json['id'] as int,
-      authorId: json['author'] as int? ?? 0,
-      title: (json['title'] as Map<String, dynamic>)['rendered'] as String? ?? '',
-      content: (json['content'] as Map<String, dynamic>)['rendered'] as String? ?? '',
-      excerpt: (json['excerpt'] as Map<String, dynamic>)['rendered'] as String? ?? '',
+      authorId: json['author'] is int ? json['author'] as int : (json['authorId'] as int? ?? 0),
+      title: parseRendered(json['title']),
+      content: parseRendered(json['content']),
+      excerpt: parseRendered(json['excerpt']),
       author: authorName,
       imageUrl: featuredImage,
       publishedAt: DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
@@ -95,13 +116,16 @@ class Post {
     );
   }
 
+  /// Serializes to a flat JSON map for local caching.
+  /// Uses explicit 'authorName' and 'imageUrl' keys so fromJson
+  /// can distinguish this from the raw WP API format.
   Map<String, dynamic> toJson() => {
         'id': id,
         'authorId': authorId,
-        'title': {'rendered': title},
-        'content': {'rendered': content},
-        'excerpt': {'rendered': excerpt},
-        'author': author,
+        'title': title,
+        'content': content,
+        'excerpt': excerpt,
+        'authorName': author,
         'imageUrl': imageUrl,
         'date': publishedAt.toIso8601String(),
         'categories': categories,
