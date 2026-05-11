@@ -40,16 +40,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final uid = context.read<AuthProvider>().user?.uid;
     if (uid == null) return;
 
-    setState(() {
-      _loading = (_submissions == null); // Only show spinner on first load
-      _error = null;
-    });
+    // 1. Optimistic Cache Load
+    final cachedSubs = await FirebaseService.instance.getCachedUserSubmissions(uid, status: SubmissionStatus.approved);
+    final cachedDrafts = await FirebaseService.instance.getCachedUserSubmissions(uid, status: SubmissionStatus.draft);
+    final cachedData = await FirebaseService.instance.getCachedUserPublicInfo(uid);
+
+    if (mounted) {
+      setState(() {
+        if (_submissions == null) _submissions = cachedSubs;
+        if (_drafts == null) _drafts = cachedDrafts;
+        if (_firestoreData == null) _firestoreData = cachedData;
+        _loading = (_submissions == null || _submissions!.isEmpty);
+        _error = null;
+      });
+    }
 
     try {
-      // Trigger background loads
+      // 2. Trigger background loads
       context.read<CollectionsProvider>().load(uid);
       
-      // These now return cached data immediately (SWR) due to service-level caching
+      // 3. Fetch Fresh Data (Network)
       final subs = await FirebaseService.instance.getUserSubmissions(uid, status: SubmissionStatus.approved);
       final drafts = await FirebaseService.instance.getUserSubmissions(uid, status: SubmissionStatus.draft);
       final data = await FirebaseService.instance.getUserPublicInfo(uid);
@@ -62,7 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     } on FirebaseServiceException catch (e) {
-      if (mounted && _submissions == null) setState(() => _error = e.message);
+      if (mounted && (_submissions == null || _submissions!.isEmpty)) setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -89,7 +99,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     return DefaultTabController(
-      length: 4,
+      length: 3,
       child: Scaffold(
         backgroundColor: AppColors.background,
         body: NestedScrollView(
@@ -296,7 +306,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   tabs: const [
                     Tab(text: 'PUBLISHED'),
                     Tab(text: 'COLLECTIONS'),
-                    Tab(text: 'SAVED'),
                     Tab(text: 'DRAFTS'),
                   ],
                 ),
@@ -307,7 +316,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               _buildPublishedGrid(),
               _buildCollectionsGrid(),
-              _buildSavedGrid(),
               _buildDraftsGrid(),
             ],
           ),
@@ -449,42 +457,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSavedGrid() {
-    return Consumer<BookmarksProvider>(
-      builder: (context, bm, _) {
-        if (bm.status == BookmarksStatus.loading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (bm.items.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.bookmark_border_outlined,
-                    size: 52, color: AppColors.outline.withValues(alpha: 0.3)),
-                const SizedBox(height: 16),
-                Text('No Saved Posts',
-                    style: GoogleFonts.ebGaramond(fontSize: 20)),
-                const SizedBox(height: 8),
-                Text('Posts you bookmark will appear here.',
-                    style: GoogleFonts.literata(
-                        fontSize: 13,
-                        color: AppColors.outline,
-                        fontStyle: FontStyle.italic)),
-              ],
-            ),
-          );
-        }
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: MasonryGrid(
-            posts: bm.items, 
-          ),
-        );
-      },
-
-    );
-  }
 
   Widget _buildDraftsGrid() {
     if (_loading) return const Center(child: CircularProgressIndicator());

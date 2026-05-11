@@ -10,6 +10,7 @@ import 'package:romanticists_app/providers/bookmarks_provider.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/providers/theme_provider.dart';
 import 'package:romanticists_app/providers/collections_provider.dart';
+import 'package:romanticists_app/providers/upload_provider.dart';
 import 'package:romanticists_app/screens/bookmarks_screen.dart';
 import 'package:romanticists_app/screens/home_screen.dart';
 import 'package:romanticists_app/screens/notifications_screen.dart';
@@ -140,6 +141,7 @@ class RomanticistsApp extends StatelessWidget {
           update: (ctx, auth, prev) => prev ?? BookmarksProvider(auth),
         ),
         ChangeNotifierProvider(create: (_) => CollectionsProvider()),
+        ChangeNotifierProvider(create: (_) => UploadProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -150,6 +152,14 @@ class RomanticistsApp extends StatelessWidget {
             darkTheme: AppTheme.dark,
             themeMode: themeProvider.themeMode,
             routerConfig: _router,
+            builder: (context, child) {
+              return Stack(
+                children: [
+                  if (child != null) child,
+                  const _GlobalUploadOverlay(),
+                ],
+              );
+            },
           );
         },
       ),
@@ -472,6 +482,67 @@ class _AnimatedTapButtonState extends State<AnimatedTapButton>
           ),
         ),
       ),
+    );
+  }
+}
+
+class _GlobalUploadOverlay extends StatelessWidget {
+  const _GlobalUploadOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<UploadProvider>(
+      builder: (context, provider, child) {
+        if (provider.status == UploadStatus.idle) return const SizedBox.shrink();
+
+        final bool isError = provider.status == UploadStatus.error;
+        final bool isSuccess = provider.status == UploadStatus.success;
+
+        return Positioned(
+          top: MediaQuery.of(context).padding.top + 16,
+          left: 16,
+          right: 16,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isError ? Colors.red.shade800 : (isSuccess ? Colors.green.shade800 : AppColors.surfaceContainerHigh),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4)),
+                ],
+              ),
+              child: Row(
+                children: [
+                  if (provider.status == UploadStatus.uploading)
+                    const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                    )
+                  else if (isSuccess)
+                    const Icon(Icons.check_circle, color: Colors.white, size: 20)
+                  else if (isError)
+                    const Icon(Icons.error, color: Colors.white, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      isError ? 'Upload failed: ${provider.errorMessage}' : (isSuccess ? 'Published successfully!' : 'Uploading...'),
+                      style: GoogleFonts.inter(
+                        color: isError || isSuccess ? Colors.white : AppColors.onSurface,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -256,54 +256,59 @@ class FirebaseService {
 
   static const String _userSubmissionsCachePrefix = 'user_subs_cache_';
 
-  /// Returns submissions belonging to [userId], optionally filtered by [status].
-  Future<List<Submission>> getUserSubmissions(String userId, {SubmissionStatus? status}) async {
-    final cacheKey = '$_userSubmissionsCachePrefix${userId}_${status?.value ?? "all"}';
-    
-    // Attempt cache read
-    List<Submission> cached = [];
+  /// Instantly returns locally cached submissions for immediate UI rendering.
+  Future<List<Submission>> getCachedUserSubmissions(String userId, {SubmissionStatus? status}) async {
+    final cacheKey = '$_userSubmissionsCachePrefix${userId}_all';
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(cacheKey);
       if (raw != null) {
         final List<dynamic> list = jsonDecode(raw);
-        cached = list.map((m) => Submission.fromJson(m as Map<String, dynamic>, id: m['id'])).toList();
+        var parsed = list.map((m) => Submission.fromJson(m as Map<String, dynamic>, id: m['id'])).toList();
+        if (status != null) {
+          parsed = parsed.where((s) => s.status == status).toList();
+        }
+        return parsed;
       }
-    } catch (e) {
-      debugPrint('User submissions cache error: $e');
-    }
+    } catch (_) {}
+    return [];
+  }
 
+  /// Returns submissions belonging to [userId], optionally filtered by [status].
+  Future<List<Submission>> getUserSubmissions(String userId, {SubmissionStatus? status}) async {
+    final cacheKey = '$_userSubmissionsCachePrefix${userId}_all';
+    
     try {
       var query = _db
           .collection(_submissionsCol)
           .where('userId', isEqualTo: userId);
       
-      if (status != null) {
-        query = query.where('status', isEqualTo: status.value);
-      }
-
       final snapshot = await query.get();
 
       // Use compute() for mapping if list is potentially large
       final rawData = snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
-      final list = await compute(_parseSubmissions, rawData);
+      var list = await compute(_parseSubmissions, rawData);
 
-      list.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
-      
-      // Update cache
+      // Cache all submissions before filtering
       final prefs = await SharedPreferences.getInstance();
       final encoded = jsonEncode(list.map((s) => {'id': s.id, ...s.toJson()}).toList());
       await prefs.setString(cacheKey, encoded);
 
+      if (status != null) {
+        list = list.where((s) => s.status == status).toList();
+      }
+
+      list.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
       return list;
     } on FirebaseException catch (e) {
+      final cached = await getCachedUserSubmissions(userId, status: status);
       if (cached.isNotEmpty) return cached;
       throw FirebaseServiceException(
         e.message ?? 'Failed to fetch submissions.',
         code: e.code,
       );
     } catch (e) {
-      return cached;
+      return await getCachedUserSubmissions(userId, status: status);
     }
   }
 
@@ -340,8 +345,19 @@ class FirebaseService {
     }
   }
 
+  /// Instantly returns locally cached public info for immediate UI rendering.
+  Future<Map<String, dynamic>?> getCachedUserPublicInfo(String uid) async {
+    if (_userCache.containsKey(uid)) return _userCache[uid];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('user_info_cache_$uid');
+      if (raw != null) return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {}
+    return null;
+  }
+
   /// Returns public info for a user (displayName, photoURL, etc).
-  /// Results are cached in-memory for the duration of the session.
+  /// Results are cached in-memory and persistently for the duration of the session.
   Future<Map<String, dynamic>?> getUserPublicInfo(String uid) async {
     if (_userCache.containsKey(uid)) return _userCache[uid];
     try {
@@ -353,11 +369,17 @@ class FirebaseService {
         standardized['displayName'] ??= data['username'] ?? data['name'];
         standardized['photoURL'] ??= data['profilePicture'] ?? data['avatarUrl'];
         _userCache[uid] = standardized;
+        
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_info_cache_$uid', jsonEncode(standardized));
+        } catch (_) {}
+        
         return standardized;
       }
       return null;
     } catch (_) {
-      return null;
+      return await getCachedUserPublicInfo(uid);
     }
   }
 

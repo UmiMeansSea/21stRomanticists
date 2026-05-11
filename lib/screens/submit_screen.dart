@@ -8,6 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:romanticists_app/app_theme.dart';
+import 'package:romanticists_app/providers/upload_provider.dart';
 import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
@@ -119,61 +120,40 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
 
     final auth = context.read<AuthProvider>();
     final uid = auth.user?.uid;
+    if (uid == null) return;
 
     setState(() => _submitting = true);
 
-    try {
-      String? imageUrl = widget.existingSubmission?.imageUrl;
-      if (_imageFile != null && uid != null) {
-        final compressed = await ImageService.compressImage(_imageFile!, quality: 75, maxWidth: 1080);
-        imageUrl = await FirebaseService.instance
-            .uploadSubmissionImage(uid, compressed);
-      }
+    final submission = Submission(
+      id: _currentSubmissionId,
+      userId: uid,
+      authorName: _isAnonymous
+          ? 'Anonymous'
+          : (auth.user?.displayName ?? _authorController.text.trim()),
+      title: _titleController.text.trim(),
+      category: _category,
+      content: _contentController.text.trim(),
+      isAnonymous: _isAnonymous,
+      submittedAt: DateTime.now(),
+      status: SubmissionStatus.approved,
+      tags: List.from(_tags),
+      imageUrl: widget.existingSubmission?.imageUrl,
+    );
 
-      final submission = Submission(
-        id: _currentSubmissionId,
-        userId: uid,
-        authorName: _isAnonymous
-            ? 'Anonymous'
-            : (auth.user?.displayName ?? _authorController.text.trim()),
-        title: _titleController.text.trim(),
-        category: _category,
-        content: _contentController.text.trim(),
-        isAnonymous: _isAnonymous,
-        submittedAt: DateTime.now(),
-        status: SubmissionStatus.approved,
-        tags: List.from(_tags),
-        imageUrl: imageUrl,
-      );
+    // Give it to the UploadProvider and leave immediately
+    context.read<UploadProvider>().startUpload(
+      uid: uid,
+      submission: submission,
+      imageFile: _imageFile,
+      isUpdate: _currentSubmissionId != null,
+    );
 
-      if (_currentSubmissionId != null) {
-        await FirebaseService.instance.updateSubmission(_currentSubmissionId!, submission);
-      } else {
-        await FirebaseService.instance.submitWork(submission);
-      }
-
-      if (mounted) {
-        _hasPublished = true;
-        context.read<PostsProvider>().addSubmissionLocally(submission);
-        if (imageUrl != null && mounted) {
-          precacheImage(CachedNetworkImageProvider(imageUrl), context);
-        }
-        context.read<PostsProvider>().refresh();
-        _reset();
-        _showSnack('❆ Your work is now live!');
-        Navigator.pop(context);
-      }
-    } on FirebaseServiceException catch (e) {
-      if (mounted) {
-        setState(() => _submitting = false);
-        _showSnack('Publish failed: ${e.message}', isError: true);
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _submitting = false);
-        _showSnack('An unexpected error occurred.', isError: true);
-      }
-    }
+    _hasPublished = true;
+    context.read<PostsProvider>().addSubmissionLocally(submission);
+    context.read<PostsProvider>().refresh();
+    
+    _reset();
+    Navigator.pop(context);
   }
 
   Future<void> _saveDraft({bool silent = false}) async {

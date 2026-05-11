@@ -42,7 +42,20 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     final service = FirebaseService.instance;
     final currentUid = context.read<AuthProvider>().user?.uid;
 
-    setState(() => _loading = true);
+    // 1. Optimistic Cache Load
+    final cachedSubs = await service.getCachedUserSubmissions(widget.userId);
+    final cachedInfo = await service.getCachedUserPublicInfo(widget.userId);
+    
+    if (mounted) {
+      setState(() {
+        if (_userInfo == null) _userInfo = cachedInfo;
+        if (_submissions == null) {
+          _submissions = cachedSubs.where((s) => !s.isAnonymous).toList();
+          _worksCount = _submissions?.length ?? 0;
+        }
+        _loading = (_userInfo == null && _submissions == null);
+      });
+    }
 
     try {
       // Parallelize fetches for better performance
