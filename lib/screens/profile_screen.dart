@@ -435,7 +435,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (bm.status == BookmarksStatus.loading) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (bm.posts.isEmpty) {
+        if (bm.items.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -458,10 +458,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return Padding(
           padding: const EdgeInsets.all(16),
           child: MasonryGrid(
-            posts: bm.posts, 
+            posts: bm.items, 
           ),
         );
       },
+
     );
   }
 

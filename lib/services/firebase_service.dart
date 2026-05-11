@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/models/submission.dart';
+import 'package:romanticists_app/models/feed_item.dart';
+
 import 'package:romanticists_app/services/cloudinary_service.dart';
 
 // ─── Typed exception ──────────────────────────────────────────────────────────
@@ -389,8 +391,20 @@ class FirebaseService {
       return snapshot.docs.map<FeedItem>((doc) {
         final d = doc.data();
         final id = d['postId']?.toString() ?? '';
-        final isSubmission = id.startsWith('sub_') || !RegExp(r'^\d+$').hasMatch(id);
         
+        // Correctly identify content type based on prefix
+        final isSubmission = id.startsWith('sub_');
+        final isWp = id.startsWith('wp_');
+        
+        // Strip prefix for parsing if it's a WP post
+        int wpId = 0;
+        if (isWp) {
+          wpId = int.tryParse(id.replaceFirst('wp_', '')) ?? 0;
+        } else if (!isSubmission) {
+          // Legacy check: if no prefix but all numeric, it's WP
+          wpId = int.tryParse(id) ?? 0;
+        }
+
         return FeedItem(
           uniqueId: id,
           authorFirebaseId: d['authorFirebaseId'] as String? ?? '',
@@ -404,8 +418,8 @@ class FirebaseService {
           isSubmission: isSubmission,
           categoryLabel: d['categoryLabel'] as String? ?? '',
           tags: ((d['tags'] as List<dynamic>?) ?? []).cast<String>(),
-          wpPost: isSubmission ? null : Post(
-            id: int.tryParse(id) ?? 0,
+          wpPost: (isSubmission) ? null : Post(
+            id: wpId,
             authorId: 0,
             title: d['title'] as String? ?? '',
             content: '',
@@ -420,6 +434,7 @@ class FirebaseService {
           ),
         );
       }).toList();
+
     } on FirebaseException catch (e) {
       throw FirebaseServiceException(
         e.message ?? 'Failed to fetch bookmarks.',
