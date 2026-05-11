@@ -12,6 +12,7 @@ import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
+import 'package:romanticists_app/services/image_service.dart';
 
 /// Write & publish screen — supports editing existing submissions and drafts.
 class SubmitScreen extends StatefulWidget {
@@ -124,8 +125,9 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
     try {
       String? imageUrl = widget.existingSubmission?.imageUrl;
       if (_imageFile != null && uid != null) {
+        final compressed = await ImageService.compressImage(_imageFile!, quality: 75, maxWidth: 1080);
         imageUrl = await FirebaseService.instance
-            .uploadSubmissionImage(uid, _imageFile!);
+            .uploadSubmissionImage(uid, compressed);
       }
 
       final submission = Submission(

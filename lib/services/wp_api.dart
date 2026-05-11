@@ -64,9 +64,8 @@ class WpApiService {
   // static const String _baseUrl =
   //     'https://public-api.wordpress.com/wp/v2/sites/21stromanticists.wordpress.com';
 
-  // NEW: Querying your scalable BFF
-  // Use 10.0.2.2 for Android Emulator, localhost for iOS/Web
-  static const String _baseUrl = 'http://10.0.2.2:3000/api/wp';
+  // NEW: Querying your scalable live BFF on Vercel
+  static const String _baseUrl = 'https://21st-romanticists.vercel.app/api/wp';
 
   static const Duration _timeout = Duration(seconds: 15);
 

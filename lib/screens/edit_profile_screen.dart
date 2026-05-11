@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
+import 'package:romanticists_app/services/image_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -102,7 +103,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       // 1. Upload image if changed
       if (_imageFile != null) {
-        photoUrl = await FirebaseService.instance.uploadProfilePicture(uid, _imageFile!);
+        final compressed = await ImageService.compressImage(_imageFile!, quality: 60, maxWidth: 512);
+        photoUrl = await FirebaseService.instance.uploadProfilePicture(uid, compressed);
       }
 
       // 2. Update Firestore
