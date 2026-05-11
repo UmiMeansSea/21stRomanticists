@@ -96,6 +96,46 @@ class FeedItem {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+    'uniqueId': uniqueId,
+    'authorFirebaseId': authorFirebaseId,
+    'authorName': authorName,
+    'title': title,
+    'excerpt': excerpt,
+    'imageUrl': imageUrl,
+    'publishedAt': publishedAt.toIso8601String(),
+    'isSubmission': isSubmission,
+    'categoryLabel': categoryLabel,
+    'tags': tags,
+    'likeCount': likeCount,
+    'commentCount': commentCount,
+    'reshareCount': reshareCount,
+    'viewCount': viewCount,
+    'isLiked': isLiked,
+    'isReshared': isReshared,
+  };
+
+  factory FeedItem.fromJson(Map<String, dynamic> json) {
+    return FeedItem(
+      uniqueId: json['uniqueId'] as String? ?? '',
+      authorFirebaseId: json['authorFirebaseId'] as String? ?? '',
+      authorName: json['authorName'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      excerpt: json['excerpt'] as String? ?? '',
+      imageUrl: json['imageUrl'] as String?,
+      publishedAt: DateTime.tryParse(json['publishedAt'] as String? ?? '') ?? DateTime.now(),
+      isSubmission: json['isSubmission'] as bool? ?? false,
+      categoryLabel: json['categoryLabel'] as String? ?? '',
+      tags: List<String>.from(json['tags'] ?? []),
+      likeCount: json['likeCount'] as int? ?? 0,
+      commentCount: json['commentCount'] as int? ?? 0,
+      reshareCount: json['reshareCount'] as int? ?? 0,
+      viewCount: json['viewCount'] as int? ?? 0,
+      isLiked: json['isLiked'] as bool? ?? false,
+      isReshared: json['isReshared'] as bool? ?? false,
+    );
+  }
+
   static String _sanitize(String text) {
     final lower = text.trim().toLowerCase();
     if (lower == 'no pic' || lower == 'no_pic') return '';

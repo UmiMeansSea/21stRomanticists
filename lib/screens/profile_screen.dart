@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/models/post.dart';
@@ -138,9 +140,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ? DecorationImage(
                                     image: CachedNetworkImageProvider(
                                       photoUrl,
-                                      // [Technique: Downsampling] Optimizing avatar memory
-                                      maxWidthDiskCache: 240,
-                                      maxHeightDiskCache: 240,
                                     ),
                                     fit: BoxFit.cover)
                                 : null,
