@@ -584,7 +584,7 @@ class _AuthorRow extends StatelessWidget {
             child: CircleAvatar(
               radius: small ? 16 : 24,
               backgroundColor: isDark ? AppColors.romanticSurfaceContainer : AppColors.surfaceContainerHigh,
-              backgroundImage: (!isAnonymous && avatarUrl != null) ? CachedNetworkImageProvider(avatarUrl) : null,
+              backgroundImage: (!isAnonymous && avatarUrl != null) ? CachedNetworkImageProvider(avatarUrl, maxWidth: 150, maxHeight: 150) : null,
               child: (isAnonymous || avatarUrl == null)
                   ? Icon(
                       isAnonymous ? Icons.person_outline : Icons.person,

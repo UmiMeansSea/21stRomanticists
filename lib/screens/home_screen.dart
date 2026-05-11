@@ -70,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
       for (int i = 0; i < (items.length > 3 ? 3 : items.length); i++) {
         final url = items[i].imageUrl;
         if (url != null && url.isNotEmpty) {
-          precacheImage(CachedNetworkImageProvider(url), context);
+          precacheImage(CachedNetworkImageProvider(url, maxWidth: 800, maxHeight: 450), context);
         }
       }
     }
