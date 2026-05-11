@@ -7,22 +7,23 @@ import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 
-/// Write & publish screen — posts go live immediately (status: approved).
+/// Write & publish screen — supports editing existing submissions and drafts.
 class SubmitScreen extends StatefulWidget {
-  const SubmitScreen({super.key});
+  final Submission? existingSubmission;
+
+  const SubmitScreen({super.key, this.existingSubmission});
 
   @override
   State<SubmitScreen> createState() => _SubmitScreenState();
 }
 
-class _SubmitScreenState extends State<SubmitScreen> {
+class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final _authorController = TextEditingController();
   final _titleController = TextEditingController();
@@ -32,6 +33,41 @@ class _SubmitScreenState extends State<SubmitScreen> {
   SubmissionCategory _category = SubmissionCategory.poems;
   bool _isAnonymous = false;
   bool _submitting = false;
+  bool _isSavingDraft = false;
+  bool _hasPublished = false;
+  String? _currentSubmissionId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    
+    // Pre-fill if editing
+    if (widget.existingSubmission != null) {
+      final s = widget.existingSubmission!;
+      _currentSubmissionId = s.id;
+      _titleController.text = s.title;
+      _contentController.text = s.content;
+      _category = s.category;
+      _isAnonymous = s.isAnonymous;
+      _tags.addAll(s.tags);
+      // Note: imageUrl is handled separately as we might still want to change it
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Auto-save if app is minimized or closed
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      if (!_hasPublished && _hasContent()) {
+        _saveDraft(silent: true);
+      }
+    }
+  }
+
+  bool _hasContent() {
+    return _titleController.text.isNotEmpty || _contentController.text.isNotEmpty;
+  }
 
   // ── Tags (max 3) ──────────────────────────────────────────────────────────
   final List<String> _tags = [];
@@ -64,46 +100,13 @@ class _SubmitScreenState extends State<SubmitScreen> {
       maxWidth: 1200,
     );
     if (picked != null) {
-      final cropped = await _cropImage(picked.path);
-      if (cropped != null) {
-        setState(() => _imageFile = File(cropped.path));
-      } else {
-        // If they cancel cropping, we can still use the image or ask them to crop.
-        // The user said "let the option of image cropping", which implies it should be possible.
-        // But they also said "lock the cropping to that". 
-        // So I will require cropping or at least use the uncropped one if they skip.
-        setState(() => _imageFile = File(picked.path));
-      }
+      setState(() => _imageFile = File(picked.path));
     }
-  }
-
-  Future<CroppedFile?> _cropImage(String path) async {
-    return await ImageCropper().cropImage(
-      sourcePath: path,
-      aspectRatio: const CropAspectRatio(ratioX: 16, ratioY: 9),
-      compressQuality: 85,
-      compressFormat: ImageCompressFormat.jpg,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Cover Image',
-          toolbarColor: AppColors.primary,
-          toolbarWidgetColor: Colors.white,
-          initAspectRatio: CropAspectRatioPreset.ratio16x9,
-          lockAspectRatio: true,
-          activeControlsWidgetColor: AppColors.accent,
-        ),
-        IOSUiSettings(
-          title: 'Crop Cover Image',
-          aspectRatioLockEnabled: true,
-          resetAspectRatioEnabled: false,
-        ),
-      ],
-    );
   }
 
   void _removeImage() => setState(() => _imageFile = null);
 
-  // ── Submit ────────────────────────────────────────────────────────────────
+  // ── Submit / Save Draft ───────────────────────────────────────────────────
   Future<void> _publish() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -113,14 +116,14 @@ class _SubmitScreenState extends State<SubmitScreen> {
     setState(() => _submitting = true);
 
     try {
-      // Upload cover image first if selected
-      String? imageUrl;
+      String? imageUrl = widget.existingSubmission?.imageUrl;
       if (_imageFile != null && uid != null) {
         imageUrl = await FirebaseService.instance
             .uploadSubmissionImage(uid, _imageFile!);
       }
 
       final submission = Submission(
+        id: _currentSubmissionId,
         userId: uid,
         authorName: _isAnonymous
             ? 'Anonymous'
@@ -130,24 +133,27 @@ class _SubmitScreenState extends State<SubmitScreen> {
         content: _contentController.text.trim(),
         isAnonymous: _isAnonymous,
         submittedAt: DateTime.now(),
+        status: SubmissionStatus.approved,
         tags: List.from(_tags),
         imageUrl: imageUrl,
       );
 
-      await FirebaseService.instance.submitWork(submission);
+      if (_currentSubmissionId != null) {
+        await FirebaseService.instance.updateSubmission(_currentSubmissionId!, submission);
+      } else {
+        await FirebaseService.instance.submitWork(submission);
+      }
 
       if (mounted) {
-        // Update local feed for instant visibility
+        _hasPublished = true;
         context.read<PostsProvider>().addSubmissionLocally(submission);
-        
-        // Precache the new image if it exists for a jank-free transition
         if (imageUrl != null && mounted) {
           precacheImage(CachedNetworkImageProvider(imageUrl), context);
         }
-        
-        context.read<PostsProvider>().refresh(); // Still refresh background
+        context.read<PostsProvider>().refresh();
         _reset();
         _showSnack('❆ Your work is now live!');
+        Navigator.pop(context);
       }
     } on FirebaseServiceException catch (e) {
       if (mounted) {
@@ -158,6 +164,47 @@ class _SubmitScreenState extends State<SubmitScreen> {
       if (mounted) {
         setState(() => _submitting = false);
         _showSnack('An unexpected error occurred.', isError: true);
+      }
+    }
+  }
+
+  Future<void> _saveDraft({bool silent = false}) async {
+    if (!silent) setState(() => _isSavingDraft = true);
+
+    final auth = context.read<AuthProvider>();
+    final uid = auth.user?.uid;
+    if (uid == null) return;
+
+    try {
+      final submission = Submission(
+        id: _currentSubmissionId,
+        userId: uid,
+        authorName: _isAnonymous ? 'Anonymous' : (auth.user?.displayName ?? ''),
+        title: _titleController.text.trim(),
+        category: _category,
+        content: _contentController.text.trim(),
+        isAnonymous: _isAnonymous,
+        submittedAt: DateTime.now(),
+        status: SubmissionStatus.draft,
+        tags: List.from(_tags),
+        imageUrl: widget.existingSubmission?.imageUrl,
+      );
+
+      if (_currentSubmissionId != null) {
+        await FirebaseService.instance.updateSubmission(_currentSubmissionId!, submission);
+      } else {
+        final newId = await FirebaseService.instance.submitWork(submission);
+        _currentSubmissionId = newId;
+      }
+
+      if (mounted && !silent) {
+        _showSnack('Saved to drafts.');
+        setState(() => _isSavingDraft = false);
+      }
+    } catch (_) {
+      if (mounted && !silent) {
+        setState(() => _isSavingDraft = false);
+        _showSnack('Failed to save draft.', isError: true);
       }
     }
   }
@@ -190,6 +237,7 @@ class _SubmitScreenState extends State<SubmitScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authorController.dispose();
     _titleController.dispose();
     _contentController.dispose();
@@ -201,20 +249,29 @@ class _SubmitScreenState extends State<SubmitScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (!_hasPublished && _hasContent()) {
+          await _saveDraft();
+        }
+        if (mounted) Navigator.pop(context);
+      },
+      child: Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
-        title: Text('THE ROMANTICISTS',
-            style: GoogleFonts.ebGaramond(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2.0,
-              color: Theme.of(context).colorScheme.primary,
-            )),
-        centerTitle: true,
-        elevation: 0,
-      ),
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          title: Text(widget.existingSubmission != null ? 'EDIT WORK' : 'THE ROMANTICISTS',
+              style: GoogleFonts.ebGaramond(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2.0,
+                color: Theme.of(context).colorScheme.primary,
+              )),
+          centerTitle: true,
+          elevation: 0,
+        ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 100),
         child: Form(
@@ -355,24 +412,38 @@ class _SubmitScreenState extends State<SubmitScreen> {
                     },
                   ),
                   const SizedBox(height: 36),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _submitting ? null : _publish,
-                      child: _submitting
-                          ? const SizedBox(
-                              width: 22, height: 22,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2))
-                          : Text('Publish Now',
-                              style: GoogleFonts.inter(
-                                  fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: (_submitting || _isSavingDraft) ? null : () => _saveDraft(),
+                          child: _isSavingDraft
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              : Text('Save as Draft', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: _submitting ? null : _publish,
+                          child: _submitting
+                              ? const SizedBox(
+                                  width: 22, height: 22,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2))
+                              : Text('Publish Now',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
+        ),
     );
   }
 
@@ -392,30 +463,61 @@ class _SubmitScreenState extends State<SubmitScreen> {
   // ─── Cover image picker ────────────────────────────────────────────────────
 
   Widget _buildImagePicker() {
-    if (_imageFile != null) {
+    final existingUrl = widget.existingSubmission?.imageUrl;
+
+    if (_imageFile != null || (existingUrl != null && existingUrl.isNotEmpty)) {
       return Stack(
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: Image.file(
-              _imageFile!,
-              width: double.infinity,
-              height: 180,
-              fit: BoxFit.cover,
-            ),
+            child: _imageFile != null
+                ? Image.file(
+                    _imageFile!,
+                    width: double.infinity,
+                    height: 180,
+                    fit: BoxFit.cover,
+                  )
+                : CachedNetworkImage(
+                    imageUrl: existingUrl!,
+                    width: double.infinity,
+                    height: 180,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      height: 180,
+                      color: AppColors.surfaceContainerLow,
+                      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      height: 180,
+                      color: AppColors.surfaceContainerLow,
+                      child: const Icon(Icons.error_outline),
+                    ),
+                  ),
           ),
           Positioned(
             top: 8,
             right: 8,
             child: GestureDetector(
-              onTap: _removeImage,
+              onTap: () {
+                if (_imageFile != null) {
+                  _removeImage();
+                } else {
+                  // If we were showing existing image, clear it by updating state if needed
+                  // but for now let's just allow picking a new one.
+                  _pickImage();
+                }
+              },
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: const BoxDecoration(
                   color: Colors.black54,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.close, color: Colors.white, size: 16),
+                child: Icon(
+                  _imageFile != null ? Icons.close : Icons.edit,
+                  color: Colors.white,
+                  size: 16,
+                ),
               ),
             ),
           ),

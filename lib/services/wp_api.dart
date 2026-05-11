@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show compute, debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:romanticists_app/models/post.dart';
@@ -14,6 +14,43 @@ class WpApiException implements Exception {
 
   @override
   String toString() => 'WpApiException: $message (status: $statusCode)';
+}
+
+// ─── Background Parsing Functions ────────────────────────────────────────────
+
+/// Parsing logic for a list of posts, intended for background Isolate via compute().
+List<Post> _parsePosts(String body) {
+  final List<dynamic> list = jsonDecode(body);
+  return list
+      .map((item) {
+        try {
+          return Post.fromJson(item as Map<String, dynamic>);
+        } catch (_) {
+          return null;
+        }
+      })
+      .whereType<Post>()
+      .toList();
+}
+
+/// Parsing logic for a single post.
+Post _parseSinglePost(String body) {
+  return Post.fromJson(jsonDecode(body) as Map<String, dynamic>);
+}
+
+/// Parsing logic for categories.
+List<Category> _parseCategories(String body) {
+  final List<dynamic> list = jsonDecode(body);
+  return list
+      .map((item) {
+        try {
+          return Category.fromJson(item as Map<String, dynamic>);
+        } catch (_) {
+          return null;
+        }
+      })
+      .whereType<Category>()
+      .toList();
 }
 
 /// Service layer for the WordPress REST API.
@@ -45,17 +82,9 @@ class WpApiService {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_cacheKey);
       if (raw == null) return [];
-      final list = jsonDecode(raw) as List<dynamic>;
-      return list
-          .map((item) {
-            try {
-              return Post.fromJson(item as Map<String, dynamic>);
-            } catch (_) {
-              return null;
-            }
-          })
-          .whereType<Post>()
-          .toList();
+      
+      // [Technique: Isolate Parsing] Offload cache parsing to background isolate
+      return await compute(_parsePosts, raw);
     } catch (e) {
       debugPrint('Cache read failed: $e');
       return [];
@@ -75,7 +104,9 @@ class WpApiService {
 
   // ─── Internal Helpers ──────────────────────────────────────────────────────
 
-  Future<dynamic> _get(String endpoint) async {
+  /// Performs a GET request and returns the RAW body string.
+  /// Parsing is handled by the calling method via compute().
+  Future<String> _getRaw(String endpoint) async {
     final uri = Uri.parse('$_baseUrl$endpoint');
     try {
       final response = await http
@@ -83,7 +114,7 @@ class WpApiService {
           .timeout(_timeout);
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        return response.body;
       } else if (response.statusCode == 404) {
         throw WpApiException('Resource not found', statusCode: 404);
       } else {
@@ -123,77 +154,50 @@ class WpApiService {
       if (tid != null) {
         queryParams.write('&tags=$tid');
       } else {
-        // If tag not found in WP, we might still have it in Firestore
-        // For WP, if tag doesn't exist, it will return nothing if we force a fake ID
         queryParams.write('&tags=0'); 
       }
     }
 
-    final raw = await _get('/posts$queryParams');
-    if (raw is! List) return [];
-
-    return raw
-        .map((item) {
-          try {
-            return Post.fromJson(item as Map<String, dynamic>);
-          } catch (_) {
-            return null;
-          }
-        })
-        .whereType<Post>()
-        .toList();
+    final rawBody = await _getRaw('/posts$queryParams');
+    
+    // [Technique: Isolate Parsing] Use compute() to map results in a background thread
+    return await compute(_parsePosts, rawBody);
   }
 
   /// Fetches a single post by ID.
   Future<Post> fetchPost(int id) async {
-    final raw = await _get('/posts/$id?_embed=true');
-    return Post.fromJson(raw as Map<String, dynamic>);
+    final rawBody = await _getRaw('/posts/$id?_embed=true');
+    return await compute(_parseSinglePost, rawBody);
   }
 
   /// Searches posts by a query string.
   Future<List<Post>> searchPosts(String query, {int page = 1, int perPage = 10}) async {
     if (query.trim().isEmpty) return [];
     final encoded = Uri.encodeComponent(query.trim());
-    final raw = await _get(
+    final rawBody = await _getRaw(
       '/posts?search=$encoded&per_page=$perPage&page=$page&_embed=true',
     );
-    if (raw is! List) return [];
-
-    return raw
-        .map((item) {
-          try {
-            return Post.fromJson(item as Map<String, dynamic>);
-          } catch (_) {
-            return null;
-          }
-        })
-        .whereType<Post>()
-        .toList();
+    
+    // [Technique: Isolate Parsing] Background thread parsing for search results
+    return await compute(_parsePosts, rawBody);
   }
 
   /// Fetches all categories from the site.
   Future<List<Category>> fetchCategories() async {
-    final raw = await _get('/categories?per_page=100');
-    if (raw is! List) return [];
-
-    return raw
-        .map((item) {
-          try {
-            return Category.fromJson(item as Map<String, dynamic>);
-          } catch (_) {
-            return null;
-          }
-        })
-        .whereType<Category>()
-        .toList();
+    final rawBody = await _getRaw('/categories?per_page=100');
+    return await compute(_parseCategories, rawBody);
   }
 
   /// Fetches all tags from the site.
   Future<List<String>> fetchTags() async {
     try {
-      final raw = await _get('/tags?per_page=100&orderby=count&order=desc');
-      if (raw is! List) return [];
-      return raw.map((item) => (item as Map<String, dynamic>)['name'] as String).toList();
+      final rawBody = await _getRaw('/tags?per_page=100&orderby=count&order=desc');
+      
+      // Simple parsing can stay on main thread for small lists, but for consistency:
+      return await compute((String body) {
+        final List<dynamic> list = jsonDecode(body);
+        return list.map((item) => (item as Map<String, dynamic>)['name'] as String).toList();
+      }, rawBody);
     } catch (_) {
       return [];
     }
@@ -202,16 +206,19 @@ class WpApiService {
   Future<int?> fetchTagIdByName(String name) async {
     try {
       final encoded = Uri.encodeComponent(name.trim());
-      final raw = await _get('/tags?search=$encoded');
-      if (raw is List && raw.isNotEmpty) {
-        // Find exact match
-        for (var item in raw) {
-          if ((item['name'] as String).toLowerCase() == name.trim().toLowerCase()) {
-            return item['id'] as int;
+      final rawBody = await _getRaw('/tags?search=$encoded');
+      
+      return await compute((String body) {
+        final List<dynamic> raw = jsonDecode(body);
+        if (raw.isNotEmpty) {
+          for (var item in raw) {
+            if ((item['name'] as String).toLowerCase() == name.trim().toLowerCase()) {
+              return item['id'] as int;
+            }
           }
         }
-      }
-      return null;
+        return null;
+      }, rawBody);
     } catch (_) {
       return null;
     }

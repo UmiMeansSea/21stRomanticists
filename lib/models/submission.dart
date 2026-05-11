@@ -20,7 +20,7 @@ extension SubmissionCategoryExt on SubmissionCategory {
 }
 
 /// The moderation status of a submission.
-enum SubmissionStatus { pending, approved, rejected }
+enum SubmissionStatus { pending, approved, rejected, draft }
 
 extension SubmissionStatusExt on SubmissionStatus {
   String get value {
@@ -29,6 +29,8 @@ extension SubmissionStatusExt on SubmissionStatus {
         return 'approved';
       case SubmissionStatus.rejected:
         return 'rejected';
+      case SubmissionStatus.draft:
+        return 'draft';
       case SubmissionStatus.pending:
         return 'pending';
     }
@@ -37,6 +39,7 @@ extension SubmissionStatusExt on SubmissionStatus {
   static SubmissionStatus fromString(String value) {
     if (value == 'approved') return SubmissionStatus.approved;
     if (value == 'rejected') return SubmissionStatus.rejected;
+    if (value == 'draft') return SubmissionStatus.draft;
     return SubmissionStatus.pending;
   }
 }

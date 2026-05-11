@@ -49,13 +49,18 @@ class FeedItem {
   });
 
   factory FeedItem.fromPost(Post post, {String categoryLabel = ''}) {
+    final title = _sanitize(post.cleanTitle);
+    final excerpt = _sanitize(post.cleanExcerpt);
+    
+    final imageUrl = _sanitizeUrl(post.imageUrl);
+    
     return FeedItem(
       uniqueId: 'wp_${post.id}',
       authorFirebaseId: '', // WP author IDs are integers — not Firebase UIDs
       authorName: post.author,
-      title: post.cleanTitle,
-      excerpt: post.cleanExcerpt,
-      imageUrl: post.imageUrl.isEmpty ? null : post.imageUrl,
+      title: title,
+      excerpt: excerpt,
+      imageUrl: imageUrl,
       publishedAt: post.publishedAt,
       isSubmission: false,
       categoryLabel: categoryLabel,
@@ -66,14 +71,17 @@ class FeedItem {
 
   factory FeedItem.fromSubmission(Submission s) {
     final raw = s.content;
-    final excerpt = raw.length > 220 ? '${raw.substring(0, 220)}…' : raw;
+    final excerpt = _sanitize(raw.length > 220 ? '${raw.substring(0, 220)}…' : raw);
+    final title = _sanitize(s.title);
+    final imageUrl = _sanitizeUrl(s.imageUrl);
+
     return FeedItem(
       uniqueId: s.wpId != null ? 'wp_${s.wpId}' : 'sub_${s.id}',
       authorFirebaseId: s.userId ?? '',
       authorName: s.isAnonymous ? 'Anonymous' : s.authorName,
-      title: s.title,
+      title: title,
       excerpt: excerpt,
-      imageUrl: s.imageUrl,
+      imageUrl: imageUrl,
       publishedAt: s.submittedAt,
       isSubmission: true,
       categoryLabel: s.category.label,
@@ -86,5 +94,18 @@ class FeedItem {
       isReshared: s.isReshared,
       submission: s,
     );
+  }
+
+  static String _sanitize(String text) {
+    final lower = text.trim().toLowerCase();
+    if (lower == 'no pic' || lower == 'no_pic') return '';
+    return text;
+  }
+
+  static String? _sanitizeUrl(String? url) {
+    if (url == null || url.isEmpty) return null;
+    final lower = url.trim().toLowerCase();
+    if (lower == 'no pic' || lower == 'no_pic') return null;
+    return url;
   }
 }

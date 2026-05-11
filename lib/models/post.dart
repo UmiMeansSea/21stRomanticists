@@ -77,6 +77,12 @@ class Post {
       } else {
         featuredImage = json['imageUrl'] as String? ?? '';
       }
+      
+      // Sanitize placeholder strings
+      final lower = featuredImage.trim().toLowerCase();
+      if (lower == 'no pic' || lower == 'no_pic') {
+        featuredImage = '';
+      }
     } catch (_) {}
 
     List<String> tags = [];

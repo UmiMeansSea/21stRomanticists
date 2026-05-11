@@ -8,6 +8,7 @@ import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/services/notification_service.dart';
+import 'package:romanticists_app/services/wp_api.dart';
 
 class PublicProfileScreen extends StatefulWidget {
   final String userId;
@@ -59,7 +60,35 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       final followers = results[2] as int;
       final subscribed = results[3] as bool;
 
-      final subs = allSubs.where((s) => !s.isAnonymous).toList();
+      // FIX 5: Handle "Legacy" WordPress users
+      List<Submission> subs = allSubs.where((s) => !s.isAnonymous).toList();
+      final isLegacy = widget.userId.startsWith('legacy_') || int.tryParse(widget.userId) != null;
+      
+      if (isLegacy && subs.isEmpty) {
+        final wpIdStr = widget.userId.replaceAll('legacy_', '');
+        try {
+          // Fetch posts from WP for this author
+          final wpPosts = await WpApiService.instance.fetchPosts(perPage: 20);
+          // Filter to only include posts by this author name/ID
+          final authorPosts = wpPosts.where((p) => p.authorId.toString() == wpIdStr || p.author == (info?['displayName'] ?? widget.initialName));
+          
+          final converted = authorPosts.map((p) => Submission(
+            id: 'wp_${p.id}',
+            title: p.cleanTitle,
+            content: p.cleanExcerpt,
+            imageUrl: p.imageUrl,
+            authorName: p.author,
+            userId: widget.userId,
+            submittedAt: p.publishedAt,
+            tags: p.tagNames,
+            status: SubmissionStatus.approved,
+            isAnonymous: false,
+            category: p.categories.isNotEmpty ? SubmissionCategory.prose : SubmissionCategory.poems, // Fallback
+          )).toList();
+          
+          subs.addAll(converted);
+        } catch (_) {}
+      }
 
       if (mounted) {
         setState(() {

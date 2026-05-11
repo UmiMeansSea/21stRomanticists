@@ -13,8 +13,9 @@ enum BookmarksStatus { initial, loading, loaded, failure }
 /// reverts silently if the Firestore write fails.
 class BookmarksProvider extends ChangeNotifier {
   BookmarksProvider(this._auth) {
-    // Auto-load when auth state resolves.
     _auth.addListener(_onAuthChanged);
+    // FIX 6: Handle the case where the user is already logged in
+    _onAuthChanged();
   }
 
   final AuthProvider _auth;

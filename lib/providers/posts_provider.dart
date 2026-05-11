@@ -44,6 +44,9 @@ class PostsProvider extends ChangeNotifier {
   String? _selectedTag;
   List<String> _wpTags = [];
 
+  // [New State for Navigation]
+  int _scrollToTopCounter = 0;
+
   // Guard against concurrent background revalidation calls
   bool _isFetchingFresh = false;
 
@@ -62,29 +65,20 @@ class PostsProvider extends ChangeNotifier {
   Set<String> get readPostIds => _readPostIds;
   bool get filterAnonymous => _filterAnonymous;
   String? get selectedTag => _selectedTag;
+  int get scrollToTopCounter => _scrollToTopCounter;
 
   List<String> get allTags {
     final tags = <String>{};
     
-    // 1. Tags fetched from WP API
+    // FIX 2: Tag normalization (Unify by lowercase using a Set)
     for (var tag in _wpTags) {
       _addTag(tags, tag);
     }
-    
-    // 2. Local submissions tags
     for (var sub in _submissions) {
       for (var tag in sub.tags) {
         _addTag(tags, tag);
       }
     }
-    
-    // 3. Current loaded WP posts tags (fallback/extra)
-    for (var post in _posts) {
-      for (var tag in post.tagNames) {
-        _addTag(tags, tag);
-      }
-    }
-    
     return tags.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
   }
 
@@ -365,7 +359,10 @@ class PostsProvider extends ChangeNotifier {
             tagName: _selectedTag,
           );
         }
-        _posts = reset ? results : [..._posts, ...results];
+        // FIX 3: Deduplicate posts (Avoid overlapping items from pagination)
+        final existingIds = _posts.map((p) => p.id).toSet();
+        final deduplicatedResults = results.where((p) => !existingIds.contains(p.id)).toList();
+        _posts = reset ? results : [..._posts, ...deduplicatedResults];
 
         // Only update the disk cache when fetching unfiltered page 1
         if (reset && _selectedCategory == null && _selectedTag == null && _searchQuery.isEmpty) {
@@ -407,6 +404,12 @@ class PostsProvider extends ChangeNotifier {
   }
 
   // ─── Public Actions ────────────────────────────────────────────────────────
+  /// Increments the scroll counter to signal HomeScreen to scroll to top.
+  void requestScrollToTop() {
+    _scrollToTopCounter++;
+    notifyListeners();
+  }
+
   /// Pull-to-refresh: show stale data, revalidate silently in background.
   Future<void> refresh() async {
     _currentPage = 1;

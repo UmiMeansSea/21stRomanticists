@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/models/post.dart';
@@ -20,6 +21,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   List<Submission>? _submissions;
+  List<Submission>? _drafts;
   List<PostCollection>? _collections;
   Map<String, dynamic>? _firestoreData;
   String? _error;
@@ -41,12 +43,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     try {
-      final subs = await FirebaseService.instance.getUserSubmissions(uid);
+      final subs = await FirebaseService.instance.getUserSubmissions(uid, status: SubmissionStatus.approved);
+      final drafts = await FirebaseService.instance.getUserSubmissions(uid, status: SubmissionStatus.draft);
       final data = await FirebaseService.instance.getUserPublicInfo(uid);
       final cols = await CollectionsService.instance.getCollections(uid);
       if (mounted) {
         setState(() {
           _submissions = subs;
+          _drafts = drafts;
           _firestoreData = data;
           _collections = cols;
         });
@@ -223,7 +227,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: IconButton(
                             icon: const Icon(Icons.share_outlined, size: 20),
                             color: AppColors.onSurface,
-                            onPressed: () {},
+                            onPressed: () {
+                              final profileLink = "https://romanticists.app/profile/${user?.uid}";
+                              Share.share(
+                                "Check out $name on The 21st Romanticists: $profileLink",
+                                subject: "Poet Profile on The 21st Romanticists",
+                              );
+                            },
                           ),
                         ),
                       ],
@@ -288,9 +298,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           body: TabBarView(
             children: [
               _buildPublishedGrid(),
-              _buildEmptyPlaceholder('No Drafts'),
               _buildCollectionsGrid(),
               _buildSavedGrid(),
+              _buildDraftsGrid(),
             ],
           ),
         ),
@@ -466,6 +476,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildDraftsGrid() {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_drafts == null || _drafts!.isEmpty) {
+      return _EmptyState(message: 'No drafts saved', icon: Icons.drafts_outlined);
+    }
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: MasonryGrid(posts: _drafts!, onAction: _load),
+    );
+  }
+
   Widget _buildEmptyPlaceholder(String title) {
     return Center(
       child: Text(title, style: GoogleFonts.ebGaramond(fontSize: 18)),
@@ -521,7 +542,8 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
 class MasonryGrid extends StatelessWidget {
   final List<dynamic> posts; // Can be List<Submission> or List<Post>
-  const MasonryGrid({super.key, required this.posts});
+  final VoidCallback? onAction;
+  const MasonryGrid({super.key, required this.posts, this.onAction});
 
   @override
   Widget build(BuildContext context) {
@@ -537,7 +559,7 @@ class MasonryGrid extends StatelessWidget {
           delegate: SliverChildBuilderDelegate(
             (context, index) {
               final item = posts[index];
-              return _GridCard(item: item);
+              return _GridCard(item: item, onAction: onAction);
             },
             childCount: posts.length,
           ),
@@ -549,7 +571,79 @@ class MasonryGrid extends StatelessWidget {
 
 class _GridCard extends StatelessWidget {
   final dynamic item;
-  const _GridCard({required this.item});
+  final VoidCallback? onAction;
+  const _GridCard({required this.item, this.onAction});
+
+  void _showMenu(BuildContext context) {
+    if (item is! Submission) return;
+    final sub = item as Submission;
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceContainerLow,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          ListTile(
+            leading: const Icon(Icons.edit_outlined),
+            title: const Text('Edit'),
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/submit', extra: sub).then((_) => onAction?.call());
+            },
+          ),
+          if (sub.status == SubmissionStatus.approved)
+            ListTile(
+              leading: const Icon(Icons.archive_outlined),
+              title: const Text('Archive to Drafts'),
+              onTap: () async {
+                Navigator.pop(context);
+                final updated = sub.copyWith(status: SubmissionStatus.draft);
+                await FirebaseService.instance.updateSubmission(sub.id!, updated);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Post has been sent to drafts.'))
+                  );
+                  onAction?.call();
+                }
+              },
+            ),
+          ListTile(
+            leading: const Icon(Icons.delete_outline, color: AppColors.error),
+            title: const Text('Delete', style: TextStyle(color: AppColors.error)),
+            onTap: () {
+              Navigator.pop(context);
+              _confirmDelete(context, sub);
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, Submission sub) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Post'),
+        content: const Text('Are you sure you want to delete this? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await FirebaseService.instance.deleteSubmission(sub.id!);
+              onAction?.call();
+            },
+            child: const Text('DELETE', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -591,30 +685,25 @@ class _GridCard extends StatelessWidget {
                     )
                   else
                     _placeholder(),
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        category?.toUpperCase() ?? 'ROMANTICIST',
-                        style: GoogleFonts.inter(
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () => _showMenu(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.more_vert, size: 16, color: Colors.white),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
           const SizedBox(height: 8),
           Text(
             title,
@@ -639,6 +728,13 @@ class _GridCard extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
+  final String message;
+  final IconData icon;
+  const _EmptyState({
+    this.message = 'No submissions yet',
+    this.icon = Icons.edit_note_outlined,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -646,10 +742,10 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.edit_note_outlined, size: 48, color: AppColors.outline),
+          Icon(icon, size: 48, color: AppColors.outline),
           const SizedBox(height: 16),
           Text(
-            'No submissions yet',
+            message,
             style: GoogleFonts.ebGaramond(
               fontSize: 20,
               color: AppColors.onSurface,

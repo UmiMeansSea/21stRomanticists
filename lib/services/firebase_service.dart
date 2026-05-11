@@ -142,13 +142,11 @@ class FirebaseService {
 
   // ─── Submissions ──────────────────────────────────────────────────────────
 
-  /// Saves a [Submission] to the Firestore "submissions" collection.
-  /// Posts are published immediately with status = approved.
-  Future<void> submitWork(Submission submission) async {
+  /// Saves a [Submission] to the Firestore "submissions" collection and returns the document ID.
+  Future<String> submitWork(Submission submission) async {
     try {
-      // Always publish instantly — no review queue
-      final published = submission.copyWith(status: SubmissionStatus.approved);
-      await _db.collection(_submissionsCol).add(published.toJson());
+      final docRef = await _db.collection(_submissionsCol).add(submission.toJson());
+      return docRef.id;
     } on FirebaseException catch (e) {
       throw FirebaseServiceException(
         e.message ?? 'Failed to submit work.',
@@ -168,13 +166,36 @@ class FirebaseService {
     }
   }
 
-  /// Returns all submissions belonging to [userId], ordered newest-first.
-  Future<List<Submission>> getUserSubmissions(String userId) async {
+  /// Updates an existing submission in Firestore.
+  Future<void> updateSubmission(String docId, Submission submission) async {
     try {
-      final snapshot = await _db
+      await _db.collection(_submissionsCol).doc(docId).update(submission.toJson());
+    } catch (e) {
+      throw FirebaseServiceException('Failed to update submission: $e');
+    }
+  }
+
+  /// Permanently deletes a submission from Firestore.
+  Future<void> deleteSubmission(String docId) async {
+    try {
+      await _db.collection(_submissionsCol).doc(docId).delete();
+    } catch (e) {
+      throw FirebaseServiceException('Failed to delete submission: $e');
+    }
+  }
+
+  /// Returns submissions belonging to [userId], optionally filtered by [status].
+  Future<List<Submission>> getUserSubmissions(String userId, {SubmissionStatus? status}) async {
+    try {
+      var query = _db
           .collection(_submissionsCol)
-          .where('userId', isEqualTo: userId)
-          .get();
+          .where('userId', isEqualTo: userId);
+      
+      if (status != null) {
+        query = query.where('status', isEqualTo: status.value);
+      }
+
+      final snapshot = await query.get();
 
       final list = snapshot.docs
           .map((doc) => Submission.fromJson(doc.data(), id: doc.id))

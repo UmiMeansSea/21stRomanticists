@@ -74,7 +74,7 @@ class _FeaturedCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                        _ShareButton(floating: true, size: 28, title: post.cleanTitle, link: post.link),
+                      _ShareButton(floating: true, size: 28, title: post.cleanTitle, link: post.link),
                       const SizedBox(width: 8),
                       _BookmarkButton.fromPost(post, floating: true, size: 28),
                     ],
@@ -408,6 +408,13 @@ class _PostImage extends StatelessWidget {
         child: CachedNetworkImage(
           imageUrl: url,
           cacheManager: FeedImageCacheManager.instance,
+          // [Technique: Advanced Image Decoding]
+          // Force downsampling in the background thread to save memory
+          memCacheWidth: 800,
+          memCacheHeight: 450,
+          // [Technique: Progressive Loading]
+          // Smooth fade-in duration and elegant placeholder
+          fadeInDuration: const Duration(milliseconds: 500),
           imageBuilder: (context, imageProvider) => Stack(
             fit: StackFit.expand,
             children: [
@@ -432,13 +439,7 @@ class _PostImage extends StatelessWidget {
               ),
             ],
           ),
-          memCacheWidth: 800, // Optimize image decoding performance
-          placeholder: (_, __) => Container(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: const Center(
-              child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
-            ),
-          ),
+          placeholder: (_, __) => const _ShimmerBox(),
           errorWidget: (_, __, ___) => Container(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: const Center(
@@ -448,6 +449,61 @@ class _PostImage extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// [Technique: Progressive Loading]
+/// Simple shimmering box for image placeholders to maintain scroll momentum.
+class _ShimmerBox extends StatefulWidget {
+  const _ShimmerBox();
+
+  @override
+  State<_ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<_ShimmerBox> with SingleTickerProviderStateMixin {
+  late AnimationController _shimmerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _shimmerController,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Theme.of(context).colorScheme.surfaceContainerHighest,
+                Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                Theme.of(context).colorScheme.surfaceContainerHighest,
+              ],
+              stops: [
+                0.0,
+                _shimmerController.value,
+                1.0,
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -478,12 +534,14 @@ class _AuthorRow extends StatelessWidget {
   final String authorId;
   final bool small;
   final bool isAnonymous;
+  final bool vertical;
 
   const _AuthorRow({
     required this.authorName,
     required this.authorId,
     this.small = false,
     this.isAnonymous = false,
+    this.vertical = false,
   });
 
   Future<Map<String, dynamic>?> _fetchUserInfo() async {
@@ -505,54 +563,87 @@ class _AuthorRow extends StatelessWidget {
           final isDark = Theme.of(context).brightness == Brightness.dark;
           final info = snapshot.data;
           final username = isAnonymous ? 'Anonymous' : (info?['displayName'] as String? ?? authorName);
+          final handle = info?['username'] as String? ?? '';
           final avatarUrl = info?['photoURL'] as String?;
+
+          final avatar = Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isDark ? AppColors.romanticPrimary.withValues(alpha: 0.3) : AppColors.primary.withValues(alpha: 0.1),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: CircleAvatar(
+              radius: small ? 16 : 24,
+              backgroundColor: isDark ? AppColors.romanticSurfaceContainer : AppColors.surfaceContainerHigh,
+              backgroundImage: (!isAnonymous && avatarUrl != null) ? CachedNetworkImageProvider(avatarUrl) : null,
+              child: (isAnonymous || avatarUrl == null)
+                  ? Icon(
+                      isAnonymous ? Icons.person_outline : Icons.person,
+                      size: small ? 18 : 28,
+                      color: isDark ? AppColors.romanticOnSurface : AppColors.primary,
+                    )
+                  : null,
+            ),
+          );
+
+          if (vertical) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                avatar,
+                const SizedBox(height: 8),
+                Text(
+                  handle.isNotEmpty ? '@$handle' : username,
+                  style: GoogleFonts.ebGaramond(
+                    fontSize: small ? 14 : 16,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            );
+          }
 
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isDark ? AppColors.romanticPrimary.withValues(alpha: 0.3) : AppColors.primary.withValues(alpha: 0.1),
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+              avatar,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      username,
+                      style: GoogleFonts.ebGaramond(
+                        fontSize: small ? 15 : 18,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    if (handle.isNotEmpty)
+                      Text(
+                        '@$handle',
+                        style: GoogleFonts.inter(
+                          fontSize: small ? 11 : 13,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                   ],
                 ),
-                child: CircleAvatar(
-                  radius: small ? 16 : 24,
-                  backgroundColor: isDark ? AppColors.romanticSurfaceContainer : AppColors.surfaceContainerHigh,
-                  backgroundImage: (!isAnonymous && avatarUrl != null) ? CachedNetworkImageProvider(avatarUrl) : null,
-                  child: (isAnonymous || avatarUrl == null)
-                      ? Icon(
-                          isAnonymous ? Icons.person_outline : Icons.person,
-                          size: small ? 18 : 28,
-                          color: isDark ? AppColors.romanticOnSurface : AppColors.primary,
-                        )
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    isAnonymous ? 'Anonymous' : '@$username',
-                    style: GoogleFonts.ebGaramond(
-                      fontSize: small ? 15 : 18,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ],
               ),
             ],
           );
@@ -1287,42 +1378,51 @@ class _EditorialLayout extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _CommunityBadge(item.categoryLabel, item.publishedAt),
-              const SizedBox(height: 10),
-              Text(
-                item.title,
-                style: GoogleFonts.ebGaramond(
-                  fontSize: 24, fontWeight: FontWeight.w600, height: 1.2,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-                maxLines: 2, overflow: TextOverflow.ellipsis,
+              // [Technique: Profile Picture and Name to left side of title]
+              _AuthorRow(
+                authorName: item.authorName,
+                authorId: item.authorFirebaseId,
+                small: true,
+                isAnonymous: isAnon,
+                vertical: true,
               ),
-              const SizedBox(height: 8),
-              Text(
-                item.excerpt,
-                style: GoogleFonts.ebGaramond(
-                  fontSize: 16, height: 1.5,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CommunityBadge(item.categoryLabel, item.publishedAt),
+                    const SizedBox(height: 10),
+                    if (item.title.isNotEmpty) ...[
+                      Text(
+                        item.title,
+                        style: GoogleFonts.ebGaramond(
+                          fontSize: 24, fontWeight: FontWeight.w600, height: 1.2,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        maxLines: 2, overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    if (item.excerpt.isNotEmpty) ...[
+                      Text(
+                        item.excerpt,
+                        style: GoogleFonts.ebGaramond(
+                          fontSize: 16, height: 1.5,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 2, overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    const Divider(height: 1, color: AppColors.surfaceBright),
+                    const SizedBox(height: 12),
+                    _BottomActionBar(item: item, isAnon: isAnon, hideAuthor: true),
+                  ],
                 ),
-                maxLines: 2, overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 16),
-              const Divider(height: 1, color: AppColors.surfaceBright),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _AuthorRow(
-                    authorName: item.authorName,
-                    authorId: item.authorFirebaseId,
-                    small: true,
-                    isAnonymous: isAnon,
-                  ),
-                  const Spacer(),
-                  _BottomActionBar(item: item, isAnon: isAnon),
-                ],
               ),
             ],
           ),
@@ -1352,51 +1452,61 @@ class _TweetLayout extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-              child: Column(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Author row
+                  // [Technique: Profile Picture and Name to left side of title]
                   _AuthorRow(
                     authorName: item.authorName,
                     authorId: item.authorFirebaseId,
                     small: true,
                     isAnonymous: isAnon,
+                    vertical: true,
                   ),
-                  const SizedBox(height: 16),
-                  // Decorative opening quote
-                  Text(
-                    '\u201C',
-                    style: GoogleFonts.ebGaramond(
-                      fontSize: 56, height: 0.6,
-                      color: accentColor.withValues(alpha: 0.3),
-                      fontWeight: FontWeight.w700,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Decorative opening quote
+                        Text(
+                          '\u201C',
+                          style: GoogleFonts.ebGaramond(
+                            fontSize: 56, height: 0.6,
+                            color: accentColor.withValues(alpha: 0.3),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (item.title.isNotEmpty) ...[
+                          Text(
+                            item.title,
+                            style: GoogleFonts.ebGaramond(
+                              fontSize: 22, fontWeight: FontWeight.w600, height: 1.2,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        if (item.excerpt.isNotEmpty) ...[
+                          Text(
+                            item.excerpt,
+                            style: GoogleFonts.ebGaramond(
+                              fontSize: 17, height: 1.6, fontStyle: FontStyle.italic,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 6, overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        _CommunityBadge(item.categoryLabel, item.publishedAt),
+                        const SizedBox(height: 12),
+                        const Divider(height: 1, color: AppColors.surfaceBright),
+                        const SizedBox(height: 12),
+                        _BottomActionBar(item: item, isAnon: isAnon, hideAuthor: true),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  // Title
-                  Text(
-                    item.title,
-                    style: GoogleFonts.ebGaramond(
-                      fontSize: 22, fontWeight: FontWeight.w600, height: 1.2,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // Content preview — show more lines since no image
-                  Text(
-                    item.excerpt,
-                    style: GoogleFonts.ebGaramond(
-                      fontSize: 17, height: 1.6, fontStyle: FontStyle.italic,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 6, overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 16),
-                  _CommunityBadge(item.categoryLabel, item.publishedAt),
-                  const SizedBox(height: 12),
-                  const Divider(height: 1, color: AppColors.surfaceBright),
-                  const SizedBox(height: 12),
-                  _BottomActionBar(item: item, isAnon: isAnon),
                 ],
               ),
             ),
@@ -1411,19 +1521,25 @@ class _TweetLayout extends StatelessWidget {
 class _BottomActionBar extends StatelessWidget {
   final FeedItem item;
   final bool isAnon;
-  const _BottomActionBar({required this.item, required this.isAnon});
+  final bool hideAuthor;
+  const _BottomActionBar({required this.item, required this.isAnon, this.hideAuthor = false});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _AuthorRow(
-          authorName: item.authorName,
-          authorId: item.authorFirebaseId,
-          small: true,
-          isAnonymous: isAnon,
-        ),
-        const SizedBox(width: 12),
+        if (!hideAuthor) ...[
+          Expanded(
+            child: _AuthorRow(
+              authorName: item.authorName,
+              authorId: item.authorFirebaseId,
+              small: true,
+              isAnonymous: isAnon,
+              vertical: true, // Stack username below profile picture
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
         _EngagementRow(
           likeCount: item.likeCount,
           commentCount: item.commentCount,
@@ -1458,7 +1574,7 @@ class _CommunityBadge extends StatelessWidget {
   final String category;
   final DateTime date;
 
-  _CommunityBadge(this.category, this.date);
+  const _CommunityBadge(this.category, this.date);
 
   @override
   Widget build(BuildContext context) {
@@ -1510,7 +1626,7 @@ class _CommunityBadge extends StatelessWidget {
 class _InlineTag extends StatelessWidget {
   final String tag;
 
-  _InlineTag(this.tag);
+  const _InlineTag(this.tag);
 
   @override
   Widget build(BuildContext context) {

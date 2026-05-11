@@ -35,6 +35,22 @@ class _HomeScreenState extends State<HomeScreen> {
         posts.refresh();
       }
       _syncFollowing();
+
+      // [Technique: Home Navigation Behavior]
+      // Listen for scroll-to-top requests from the AppShell / BottomNav
+      int lastScrollCounter = posts.scrollToTopCounter;
+      posts.addListener(() {
+        if (posts.scrollToTopCounter > lastScrollCounter) {
+          lastScrollCounter = posts.scrollToTopCounter;
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              0,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.fastOutSlowIn,
+            );
+          }
+        }
+      });
     });
   }
 
@@ -68,8 +84,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
+    // [Technique: Aggressive Prefetching]
+    // Trigger pagination when reaching 75% of the scroll depth instead of the absolute bottom.
+    // This ensures data is loaded before the user reaches the end of the current list.
+    final threshold = _scrollController.position.maxScrollExtent * 0.75;
+    if (_scrollController.position.pixels >= threshold) {
       context.read<PostsProvider>().loadMore();
     }
   }
@@ -165,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
-                      color: AppColors.outline,
+                      color: AppColors.onSurface, // Improved visibility
                     ),
                   ),
                 ),

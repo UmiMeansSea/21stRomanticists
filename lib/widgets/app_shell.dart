@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:romanticists_app/app_theme.dart';
+import 'package:romanticists_app/providers/posts_provider.dart';
 
 /// The root shell widget that owns the bottom navigation bar.
 /// go_router's ShellRoute renders child screens inside this.
@@ -30,28 +32,51 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final idx = _currentIndex(context);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: child,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surfaceContainerLow,
-          border: Border(
-            top: BorderSide(color: AppColors.outlineVariant, width: 0.4),
+    return PopScope(
+      canPop: idx == 0, // Only allow system pop if on Home tab
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        // If not on home tab, go back to home tab
+        if (idx != 0) {
+          context.go('/');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: child,
+        bottomNavigationBar: Container(
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceContainerLow,
+            border: Border(
+              top: BorderSide(color: AppColors.outlineVariant, width: 0.4),
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(_tabs.length, (i) {
-                final tab = _tabs[i];
-                final selected = i == idx;
-                return _NavItem(tab: tab, selected: selected, onTap: () {
-                  if (!selected) context.go(tab.path);
-                });
-              }),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: List.generate(_tabs.length, (i) {
+                  final tab = _tabs[i];
+                  final selected = i == idx;
+                  return _NavItem(
+                    tab: tab,
+                    selected: selected,
+                    onTap: () {
+                      if (selected) {
+                        // If already on Home, refresh and scroll to top
+                        if (i == 0) {
+                          final provider = context.read<PostsProvider>();
+                          provider.refresh();
+                          provider.requestScrollToTop();
+                        }
+                      } else {
+                        context.go(tab.path);
+                      }
+                    },
+                  );
+                }),
+              ),
             ),
           ),
         ),
