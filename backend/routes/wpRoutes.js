@@ -1,17 +1,16 @@
 const express = require('express');
 const axios = require('axios');
-const Redis = require('ioredis');
+const { Redis } = require('@upstash/redis');
 
 const router = express.Router();
 
-// Initialize Redis Client with fallback
+// Initialize Upstash Redis with REST credentials
 let redis;
 try {
-  redis = new Redis(process.env.REDIS_URL, {
-    maxRetriesPerRequest: 1,
-    retryStrategy: () => null // Disable auto-retry if it fails once
+  redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
   });
-  redis.on('error', (err) => console.log('Redis error, continuing without cache:', err.message));
 } catch (e) {
   console.log('Redis initialization failed, continuing without cache');
 }
@@ -38,11 +37,11 @@ router.get('/posts', async (req, res) => {
 
   try {
     // 1. Try Cache
-    if (redis && redis.status === 'ready') {
+    if (redis) {
       const cachedData = await redis.get(cacheKey);
       if (cachedData) {
         console.log(`[Redis] Cache Hit for ${cacheKey}`);
-        return res.status(200).json(JSON.parse(cachedData));
+        return res.status(200).json(cachedData); // @upstash/redis parses JSON automatically
       }
     }
 
@@ -56,8 +55,8 @@ router.get('/posts', async (req, res) => {
     const strippedPosts = response.data.map(stripWordPressPost);
 
     // 3. Save to Cache
-    if (redis && redis.status === 'ready') {
-      await redis.setex(cacheKey, CACHE_TTL, JSON.stringify(strippedPosts));
+    if (redis) {
+      await redis.set(cacheKey, strippedPosts, { ex: CACHE_TTL });
     }
 
     return res.status(200).json(strippedPosts);
