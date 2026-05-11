@@ -190,12 +190,12 @@ class FirebaseService {
 
   /// Returns approved community submissions for the home feed, newest first.
   /// Uses client-side sort to avoid requiring a composite Firestore index.
-  Future<List<Submission>> getPublishedSubmissions({int limit = 30}) async {
+  Future<List<Submission>> getPublishedSubmissions({int limit = 100}) async {
     try {
       final snapshot = await _db
           .collection(_submissionsCol)
           .where('status', isEqualTo: 'approved')
-          .limit(50)
+          .limit(100)
           .get();
 
       final list = snapshot.docs

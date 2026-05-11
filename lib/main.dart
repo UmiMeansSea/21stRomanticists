@@ -8,6 +8,7 @@ import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/providers/bookmarks_provider.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
+import 'package:romanticists_app/providers/theme_provider.dart';
 import 'package:romanticists_app/screens/bookmarks_screen.dart';
 import 'package:romanticists_app/screens/home_screen.dart';
 import 'package:romanticists_app/screens/notifications_screen.dart';
@@ -81,6 +82,7 @@ class RomanticistsApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProxyProvider<AuthProvider, PostsProvider>(
           create: (_) => PostsProvider(),
@@ -95,12 +97,17 @@ class RomanticistsApp extends StatelessWidget {
           update: (ctx, auth, prev) => prev ?? BookmarksProvider(auth),
         ),
       ],
-      child: MaterialApp.router(
-        title: 'The 21st Romanticists',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark,
-        themeMode: ThemeMode.dark,
-        routerConfig: _router,
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return MaterialApp.router(
+            title: 'The 21st Romanticists',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
+            themeMode: themeProvider.themeMode,
+            routerConfig: _router,
+          );
+        },
       ),
     );
   }
@@ -162,7 +169,12 @@ final GoRouter _router = GoRouter(
       builder: (context, state) {
         final postId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
         final post = state.extra as Post?;
-        return PostDetailScreen(postId: postId, initialPost: post);
+        final scrollToComments = state.uri.queryParameters['comment'] == 'true';
+        return PostDetailScreen(
+          postId: postId, 
+          initialPost: post,
+          scrollToComments: scrollToComments,
+        );
       },
     ),
 
@@ -171,9 +183,13 @@ final GoRouter _router = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id'] ?? '';
         final submission = state.extra as Submission?;
+        final scrollToComments = state.uri.queryParameters['comment'] == 'true';
         
         if (submission != null) {
-          return SubmissionDetailScreen(submission: submission);
+          return SubmissionDetailScreen(
+            submission: submission,
+            scrollToComments: scrollToComments,
+          );
         }
 
         // Fallback for direct links or refreshes
@@ -202,7 +218,10 @@ final GoRouter _router = GoRouter(
                 ),
               );
             }
-            return SubmissionDetailScreen(submission: snapshot.data!);
+            return SubmissionDetailScreen(
+              submission: snapshot.data!,
+              scrollToComments: scrollToComments,
+            );
           },
         );
       },

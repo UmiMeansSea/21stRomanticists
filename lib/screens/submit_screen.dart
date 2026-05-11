@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
@@ -62,7 +63,42 @@ class _SubmitScreenState extends State<SubmitScreen> {
       imageQuality: 85,
       maxWidth: 1200,
     );
-    if (picked != null) setState(() => _imageFile = File(picked.path));
+    if (picked != null) {
+      final cropped = await _cropImage(picked.path);
+      if (cropped != null) {
+        setState(() => _imageFile = File(cropped.path));
+      } else {
+        // If they cancel cropping, we can still use the image or ask them to crop.
+        // The user said "let the option of image cropping", which implies it should be possible.
+        // But they also said "lock the cropping to that". 
+        // So I will require cropping or at least use the uncropped one if they skip.
+        setState(() => _imageFile = File(picked.path));
+      }
+    }
+  }
+
+  Future<CroppedFile?> _cropImage(String path) async {
+    return await ImageCropper().cropImage(
+      sourcePath: path,
+      aspectRatio: const CropAspectRatio(ratioX: 16, ratioY: 9),
+      compressQuality: 85,
+      compressFormat: ImageCompressFormat.jpg,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Cover Image',
+          toolbarColor: AppColors.primary,
+          toolbarWidgetColor: Colors.white,
+          initAspectRatio: CropAspectRatioPreset.ratio16x9,
+          lockAspectRatio: true,
+          activeControlsWidgetColor: AppColors.accent,
+        ),
+        IOSUiSettings(
+          title: 'Crop Cover Image',
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+        ),
+      ],
+    );
   }
 
   void _removeImage() => setState(() => _imageFile = null);
@@ -202,12 +238,11 @@ class _SubmitScreenState extends State<SubmitScreen> {
                   const SizedBox(height: 28),
 
                   // ── Author name / Anonymous toggle ─────────────────────────
-                  if (auth.user == null) ...[
+                  if (auth.user != null) ...[
+                    _buildLoggedInAuthorLabel(auth.user!),
+                  ] else ...[
                     _buildAnonymousToggle(),
                     const SizedBox(height: 24),
-                  ],
-
-                  if (auth.user == null)
                     AnimatedSize(
                       duration: const Duration(milliseconds: 220),
                       curve: Curves.easeInOut,
@@ -236,6 +271,7 @@ class _SubmitScreenState extends State<SubmitScreen> {
                               ],
                             ),
                     ),
+                  ],
 
                   // ── Title ───────────────────────────────────────────────────
                   const _FieldLabel('Title'),
@@ -491,6 +527,7 @@ class _SubmitScreenState extends State<SubmitScreen> {
               value: _isAnonymous,
               onChanged: (v) => setState(() => _isAnonymous = v),
               activeColor: AppColors.primary,
+              activeTrackColor: AppColors.primary.withValues(alpha: 0.3),
             ),
           ],
         ),

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -23,7 +24,12 @@ import 'package:flutter/rendering.dart';
 /// Full-screen reader for a community [Submission] stored in Firestore.
 class SubmissionDetailScreen extends StatefulWidget {
   final Submission submission;
-  const SubmissionDetailScreen({super.key, required this.submission});
+  final bool scrollToComments;
+  const SubmissionDetailScreen({
+    super.key, 
+    required this.submission,
+    this.scrollToComments = false,
+  });
 
   @override
   State<SubmissionDetailScreen> createState() => _SubmissionDetailScreenState();
@@ -45,6 +51,19 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     // Increment view count
     WidgetsBinding.instance.addPostFrameCallback((_) {
       EngagementService.instance.incrementViewCount(widget.submission.id!);
+      
+      // Auto-scroll to comments if requested
+      if (widget.scrollToComments) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
     });
   }
 
@@ -101,34 +120,250 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                   final saved = bm.isBookmarked(uniqueId);
                   return IconButton(
                     icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border_outlined),
-                    color: saved ? AppColors.primary : AppColors.primary,
+                    color: saved ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
                     tooltip: 'Save to collection',
                     onPressed: _handleSave,
                   );
                 },
               ),
-              IconButton(
-                icon: const Icon(Icons.share_outlined),
-                tooltip: 'Share',
-                onPressed: () => Share.share(
-                  '${submission.title}\n\nBy ${submission.authorName}\n\n'
-                  '${submission.content.length > 300 ? submission.content.substring(0, 300) + '…' : submission.content}',
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_horiz),
+                color: Theme.of(context).colorScheme.surfaceContainer,
+                iconColor: Theme.of(context).colorScheme.onSurface,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
+                    width: 0.5,
+                  ),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.copy_outlined),
-                tooltip: 'Copy text',
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: submission.content));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Copied to clipboard',
-                          style: GoogleFonts.literata(color: Colors.white)),
-                      backgroundColor: AppColors.primary,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                onSelected: (value) async {
+                  switch (value) {
+                    case 'follow':
+                      final auth = context.read<AuthProvider>();
+                      if (auth.isAuthenticated && submission.userId != null) {
+                        try {
+                          await FirebaseService.instance.subscribe(
+                            auth.uid!,
+                            submission.userId!,
+                            targetName: submission.authorName,
+                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Following ${submission.authorName}', style: GoogleFonts.inter())),
+                            );
+                          }
+                        } catch (e) {
+                          debugPrint('Follow error: $e');
+                        }
+                      } else {
+                        _showLoginPrompt();
+                      }
+                      break;
+                    case 'copy_link':
+                      final link = submission.wpId != null 
+                          ? 'https://21stromanticists.com/?p=${submission.wpId}'
+                          : 'https://21stromanticists.com/submission/${submission.id}';
+                      Clipboard.setData(ClipboardData(text: link));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Link copied to clipboard', style: GoogleFonts.inter())),
+                      );
+                      break;
+                    case 'share':
+                      Share.share(
+                        '${submission.title}\n\nBy ${submission.authorName}\n\n'
+                        '${submission.content.length > 300 ? submission.content.substring(0, 300) + '…' : submission.content}',
+                      );
+                      break;
+                    case 'save_image':
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Saved as image', style: GoogleFonts.inter())),
+                      );
+                      break;
+                    case 'copy_text':
+                      Clipboard.setData(ClipboardData(text: submission.content));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Copied to clipboard', style: GoogleFonts.literata(color: Colors.white)),
+                          backgroundColor: AppColors.primary,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      break;
+                    case 'show_less':
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('You will see fewer posts like this', style: GoogleFonts.inter())),
+                      );
+                      break;
+                    case 'mute':
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Author muted', style: GoogleFonts.inter())),
+                      );
+                      break;
+                    case 'block':
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('User blocked', style: GoogleFonts.inter())),
+                      );
+                      break;
+                    case 'report':
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Report submitted', style: GoogleFonts.inter())),
+                      );
+                      break;
+                  }
                 },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  PopupMenuItem<String>(
+                    value: 'follow',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.person_add_outlined, 
+                          size: 20,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Follow ${submission.authorName}', 
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'copy_link',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.link, 
+                          size: 20,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Copy link', 
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'share',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.share_outlined, 
+                          size: 20,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Share', 
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'save_image',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.download_outlined, 
+                          size: 20,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Save as image', 
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'copy_text',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.copy_outlined, 
+                          size: 20,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Copy text', 
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'show_less',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.close, 
+                          size: 20,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Show less', 
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'mute',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.volume_off_outlined, size: 20, color: Colors.redAccent),
+                        const SizedBox(width: 12),
+                        Text('Mute author', style: GoogleFonts.inter(fontSize: 15, color: Colors.redAccent)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'block',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.block_outlined, size: 20, color: Colors.redAccent),
+                        const SizedBox(width: 12),
+                        Text('Block', style: GoogleFonts.inter(fontSize: 15, color: Colors.redAccent)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'report',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, size: 20, color: Colors.redAccent),
+                        const SizedBox(width: 12),
+                        Text('Report', style: GoogleFonts.inter(fontSize: 15, color: Colors.redAccent)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -143,8 +378,21 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     aspectRatio: 16/9,
                     child: CachedNetworkImage(
                       imageUrl: submission.imageUrl!,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
+                      imageBuilder: (context, imageProvider) => Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image(image: imageProvider, fit: BoxFit.cover),
+                          ClipRect(
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                              child: Container(
+                                color: Colors.black.withValues(alpha: 0.15),
+                              ),
+                            ),
+                          ),
+                          Image(image: imageProvider, fit: BoxFit.contain),
+                        ],
+                      ),
                       placeholder: (_, __) => Container(
                         color: AppColors.surfaceContainerHigh,
                       ),
@@ -243,6 +491,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         likeCount: submission.likeCount,
                         reshareCount: submission.reshareCount,
                         commentCount: submission.commentCount,
+                        isAnonymous: submission.isAnonymous,
                       ),
 
                       const SizedBox(height: 48),
@@ -420,6 +669,7 @@ class _AuthorProfileSection extends StatefulWidget {
   final int likeCount;
   final int reshareCount;
   final int commentCount;
+  final bool isAnonymous;
 
   const _AuthorProfileSection({
     required this.userId,
@@ -429,6 +679,7 @@ class _AuthorProfileSection extends StatefulWidget {
     required this.likeCount,
     required this.reshareCount,
     required this.commentCount,
+    this.isAnonymous = false,
   });
 
   @override
@@ -446,7 +697,7 @@ class _AuthorProfileSectionState extends State<_AuthorProfileSection> {
   }
 
   Future<void> _fetchAuthorInfo() async {
-    if (widget.userId == null) {
+    if (widget.userId == null || widget.isAnonymous) {
       setState(() => _isLoading = false);
       return;
     }
@@ -508,30 +759,54 @@ class _AuthorProfileSectionState extends State<_AuthorProfileSection> {
                   ],
                 ),
               ),
-              ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.onPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  minimumSize: Size.zero,
-                  elevation: 0,
+              if (!widget.isAnonymous)
+                ElevatedButton(
+                  onPressed: () async {
+                    if (widget.userId != null) {
+                      try {
+                        await FirebaseService.instance.subscribe(
+                          context.read<AuthProvider>().uid!,
+                          widget.userId!,
+                          targetName: widget.authorName,
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Subscribed to ${widget.authorName}')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to subscribe: $e')),
+                          );
+                        }
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.onPrimary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    minimumSize: Size.zero,
+                    elevation: 0,
+                  ),
+                  child: Text('Subscribe', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
                 ),
-                child: Text('Subscribe', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold)),
-              ),
             ],
           ),
           const SizedBox(height: 20),
-          Text(
-            bio,
-            style: GoogleFonts.literata(
-              fontSize: 15,
-              height: 1.6,
-              color: AppColors.onSurface,
+          if (!widget.isAnonymous) ...[
+            Text(
+              bio,
+              style: GoogleFonts.literata(
+                fontSize: 15,
+                height: 1.6,
+                color: AppColors.onSurface,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
+          ],
           const Divider(height: 1),
           const SizedBox(height: 20),
           
@@ -542,7 +817,6 @@ class _AuthorProfileSectionState extends State<_AuthorProfileSection> {
               _StatItem(icon: Icons.favorite_border, label: 'Likes', count: widget.likeCount),
               _StatItem(icon: Icons.chat_bubble_outline, label: 'Comments', count: widget.commentCount),
               _StatItem(icon: Icons.repeat, label: 'Restacks', count: widget.reshareCount),
-              _StatItem(icon: Icons.screenshot_outlined, label: 'Screenshots', count: 0), // Placeholder
             ],
           ),
         ],

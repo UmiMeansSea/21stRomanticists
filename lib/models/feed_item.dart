@@ -59,6 +59,7 @@ class FeedItem {
       publishedAt: post.publishedAt,
       isSubmission: false,
       categoryLabel: categoryLabel,
+      tags: post.tagNames,
       wpPost: post,
     );
   }

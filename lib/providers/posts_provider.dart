@@ -8,6 +8,7 @@ import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/services/wp_api.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/services/read_status_service.dart';
+import 'package:romanticists_app/services/engagement_service.dart';
 
 enum PostsStatus { initial, loading, loadingMore, success, failure }
 
@@ -39,6 +40,9 @@ class PostsProvider extends ChangeNotifier {
   String? _currentUserId;
   Set<String> _followedRestackIds = {}; // Post IDs restacked by people I follow
 
+  bool _filterAnonymous = false;
+  String? _selectedTag;
+
   // ─── Getters ───────────────────────────────────────────────────────────────
   List<Category> get categories => List.unmodifiable(_categories);
   Category? get selectedCategory => _selectedCategory;
@@ -52,6 +56,38 @@ class PostsProvider extends ChangeNotifier {
   String get searchQuery => _searchQuery;
   List<String> get followingIds => _followingIds;
   Set<String> get readPostIds => _readPostIds;
+  bool get filterAnonymous => _filterAnonymous;
+  String? get selectedTag => _selectedTag;
+
+  List<String> get allTags {
+    final tags = <String>{};
+    
+    // Submissions tags
+    for (var sub in _submissions) {
+      for (var tag in sub.tags) {
+        _addTag(tags, tag);
+      }
+    }
+    
+    // WordPress post tags
+    for (var post in _posts) {
+      for (var tag in post.tagNames) {
+        _addTag(tags, tag);
+      }
+    }
+    
+    return tags.toList()..sort();
+  }
+
+  void _addTag(Set<String> set, String tag) {
+    if (tag.trim().isEmpty) return;
+    final normalized = tag.trim().toLowerCase();
+    // Capitalize first letter for display consistency
+    final display = normalized.length > 1 
+      ? normalized[0].toUpperCase() + normalized.substring(1)
+      : normalized.toUpperCase();
+    set.add(display);
+  }
 
   /// Merged, sorted feed of WP posts + community submissions.
   List<FeedItem> get feedItems {
@@ -74,23 +110,45 @@ class PostsProvider extends ChangeNotifier {
         .map((s) => s.wpId!)
         .toSet();
     
-    debugPrint('PostsProvider: Migrated WP IDs count: ${migratedWpIds.length}');
-
     // 1. Map WordPress posts to FeedItems, but ONLY those that haven't been migrated yet
     final wpItems = _posts
         .where((p) => !migratedWpIds.contains(p.id))
+        .where((p) {
+          // Filter by Anonymous (WP posts are never anonymous in the submission sense)
+          if (_filterAnonymous) return false;
+          
+          // Filter by Tag
+          if (_selectedTag != null) {
+            final normalizedTag = _selectedTag!.toLowerCase();
+            return p.tagNames.any((t) => t.toLowerCase() == normalizedTag);
+          }
+          
+          // Filter by Category
+          if (_selectedCategory == null || _selectedCategory!.id == 0) return true;
+          
+          // WP posts only show up in their specific categories
+          return p.categories.contains(_selectedCategory!.id);
+        })
         .map((p) => FeedItem.fromPost(p, categoryLabel: _catLabel(p)))
         .toList();
     
-    // 2. Map all Firestore submissions to FeedItems, filtering by category locally
+    // 2. Map all Firestore submissions to FeedItems, filtering locally
     final subItems = _submissions.where((s) {
+      // 1. Filter by Anonymous
+      if (_filterAnonymous && !s.isAnonymous) return false;
+
+      // 2. Filter by Tag
+      if (_selectedTag != null) {
+        final normalizedTag = _selectedTag!.toLowerCase();
+        if (!s.tags.any((t) => t.toLowerCase() == normalizedTag)) return false;
+      }
+
+      // 3. Filter by Category
       if (_selectedCategory == null || _selectedCategory!.id == 0) return true;
       
-      // Map submission category to WordPress category name
       final subCat = s.category.label.toLowerCase();
       final selectedCat = _selectedCategory!.name.toLowerCase();
       
-      // Support common mappings
       if (selectedCat == 'prose' && subCat == 'prose') return true;
       if (selectedCat == 'poems' && subCat == 'poems') return true;
       if (selectedCat == 'poetry' && subCat == 'poems') return true;
@@ -98,16 +156,8 @@ class PostsProvider extends ChangeNotifier {
       return subCat == selectedCat;
     }).map((s) => FeedItem.fromSubmission(s)).toList();
 
-    debugPrint('PostsProvider: WP items: ${wpItems.length}, Sub items: ${subItems.length}');
-
     final merged = [...wpItems, ...subItems];
     _sortFeed(merged);
-    
-    debugPrint('PostsProvider: Final merged items: ${merged.length}');
-    if (merged.isEmpty && _posts.isNotEmpty) {
-      debugPrint('PostsProvider WARNING: Feed is empty despite having posts! Filtering might be too aggressive.');
-    }
-    
     return merged;
   }
 
@@ -192,57 +242,56 @@ class PostsProvider extends ChangeNotifier {
   }
 
   // ─── Load Posts ────────────────────────────────────────────────────────────
-  Future<void> _loadPosts({required bool reset}) async {
+  Future<void> _loadPosts({bool reset = false}) async {
+    if (_status == PostsStatus.loading && !reset) return;
+    
     if (reset) {
-      _status = PostsStatus.loading;
       _currentPage = 1;
       _posts = [];
-      _errorMessage = null;
-    } else {
-      _status = PostsStatus.loadingMore;
     }
+
+    _status = PostsStatus.loading;
     notifyListeners();
 
     try {
-      final categoryId = _selectedCategory?.id;
-      final search = _searchQuery.trim();
+      // 1. Fetch WordPress posts
+      try {
+        final categoryId = _selectedCategory?.id;
+        List<Post> results;
 
-      // ── WP Posts ──
-      final results = search.isNotEmpty
-          ? await _api.searchPosts(search, page: _currentPage)
-          : await _api.fetchPosts(
-              page: _currentPage,
-              categoryId: categoryId == 0 ? null : categoryId,
-            );
-
-      _totalPages = await _api.fetchTotalPages(
-        categoryId: categoryId == 0 ? null : categoryId,
-        search: search.isEmpty ? null : search,
-      );
-
-      _posts = [..._posts, ...results];
-
-      // ── Firestore submissions (only on first page load, not paginated) ──
-      if (reset && search.isEmpty) {
-        debugPrint('PostsProvider: Loading submissions from Firestore...');
-        _submissions = await FirebaseService.instance.getPublishedSubmissions();
-        debugPrint('PostsProvider: Loaded ${_submissions.length} submissions');
-        await _loadFollowedRestacks();
+        if (_searchQuery.isNotEmpty) {
+          results = await _api.searchPosts(_searchQuery, page: _currentPage);
+        } else {
+          _totalPages = await _api.fetchTotalPages(
+            categoryId: categoryId == 0 ? null : categoryId,
+            search: _searchQuery.isEmpty ? null : _searchQuery,
+          );
+          results = await _api.fetchPosts(
+            page: _currentPage,
+            categoryId: categoryId == 0 ? null : categoryId,
+          );
+        }
+        _posts = reset ? results : [..._posts, ...results];
+      } catch (e) {
+        debugPrint('WP load failed: $e');
+        // If it's a reset and WP fails, we still want to try Firestore
+        if (reset) _posts = [];
       }
 
-      _status = PostsStatus.success;
-      _wpError = false;
-      _subError = false;
-    } on WpApiException catch (e) {
+      // 2. Fetch Firestore submissions (only on reset)
+      if (reset) {
+        try {
+          _submissions = await FirebaseService.instance.getPublishedSubmissions();
+        } catch (e) {
+          debugPrint('Firestore load failed: $e');
+          _submissions = [];
+        }
+      }
+
       _status = feedItems.isEmpty ? PostsStatus.failure : PostsStatus.success;
-      _wpError = true;
-      _errorMessage = e.message;
     } catch (e) {
       _status = feedItems.isEmpty ? PostsStatus.failure : PostsStatus.success;
-      _subError = true;
-      _errorMessage = 'An unexpected error occurred: $e';
     } finally {
-      _isLoadingMore = false;
       notifyListeners();
     }
   }
@@ -269,16 +318,47 @@ class PostsProvider extends ChangeNotifier {
   }
 
   void selectCategory(Category? category) {
-    if (_selectedCategory == category) return;
-    _selectedCategory = category;
+    // Always reset other filters when a category is selected
     _searchQuery = '';
+    _selectedTag = null;
+    _filterAnonymous = false;
+
+    if (_selectedCategory == category) {
+      notifyListeners(); // Still notify to update UI (clearing filters)
+      return;
+    }
+    
+    _selectedCategory = category;
     _loadPosts(reset: true);
+  }
+
+  void toggleAnonymousFilter() {
+    _filterAnonymous = !_filterAnonymous;
+    if (_filterAnonymous) {
+      _selectedTag = null;
+      _selectedCategory = null;
+      _searchQuery = '';
+    }
+    notifyListeners();
+  }
+
+  void selectTag(String? tag) {
+    if (_selectedTag == tag) return;
+    _selectedTag = tag;
+    if (_selectedTag != null) {
+      _filterAnonymous = false;
+      _selectedCategory = null;
+      _searchQuery = '';
+    }
+    notifyListeners();
   }
 
   void search(String query) {
     if (_searchQuery == query) return;
     _searchQuery = query;
     _selectedCategory = null;
+    _selectedTag = null;
+    _filterAnonymous = false;
     _loadPosts(reset: true);
   }
 
@@ -323,6 +403,97 @@ class PostsProvider extends ChangeNotifier {
     
     _submissions = [s, ..._submissions];
     notifyListeners();
+  }
+
+  Future<void> toggleLike(FeedItem item) async {
+    if (_currentUserId == null) return;
+
+    Submission? sub;
+    if (item.isSubmission) {
+      sub = item.submission;
+    } else if (item.wpPost != null) {
+      // Migrate WP post on-the-fly if needed
+      await FirebaseService.instance.migrateWordPressPost(item.wpPost!);
+      // Re-fetch to get the newly created submission
+      final results = await FirebaseService.instance.getPublishedSubmissions();
+      sub = results.firstWhere((s) => s.wpId == item.wpPost!.id);
+      _submissions.add(sub);
+      notifyListeners();
+    }
+
+    if (sub == null) return;
+
+    final index = _submissions.indexWhere((s) => s.id == sub?.id);
+    if (index == -1) return;
+
+    final wasLiked = sub.isLiked;
+    final newIsLiked = !wasLiked;
+    final newLikeCount = sub.likeCount + (newIsLiked ? 1 : -1);
+
+    // Optimistic update
+    _submissions[index] = sub.copyWith(
+      isLiked: newIsLiked,
+      likeCount: newLikeCount,
+    );
+    notifyListeners();
+
+    try {
+      if (newIsLiked) {
+        await EngagementService.instance.likePost(_currentUserId!, sub.id!, sub.userId);
+      } else {
+        await EngagementService.instance.unlikePost(_currentUserId!, sub.id!);
+      }
+    } catch (e) {
+      // Revert on error
+      _submissions[index] = sub.copyWith(
+        isLiked: wasLiked,
+        likeCount: sub.likeCount,
+      );
+      notifyListeners();
+    }
+  }
+
+  Future<void> toggleReshare(FeedItem item) async {
+    if (_currentUserId == null) return;
+
+    Submission? sub;
+    if (item.isSubmission) {
+      sub = item.submission;
+    } else if (item.wpPost != null) {
+      await FirebaseService.instance.migrateWordPressPost(item.wpPost!);
+      final results = await FirebaseService.instance.getPublishedSubmissions();
+      sub = results.firstWhere((s) => s.wpId == item.wpPost!.id);
+      _submissions.add(sub);
+      notifyListeners();
+    }
+
+    if (sub == null || sub.isReshared) return;
+
+    final index = _submissions.indexWhere((s) => s.id == sub!.id);
+    if (index == -1) return;
+
+    // Optimistic update
+    _submissions[index] = sub.copyWith(
+      isReshared: true,
+      reshareCount: sub.reshareCount + 1,
+    );
+    notifyListeners();
+
+    try {
+      await EngagementService.instance.restackPost(
+        _currentUserId!,
+        sub.id!,
+        authorUid: sub.userId,
+        postTitle: sub.title,
+      );
+    } catch (e) {
+      // Revert on error
+      _submissions[index] = sub.copyWith(
+        isReshared: false,
+        reshareCount: sub.reshareCount,
+      );
+      notifyListeners();
+    }
   }
 
   /// Migrates WordPress posts to Firebase and refreshes the feed.

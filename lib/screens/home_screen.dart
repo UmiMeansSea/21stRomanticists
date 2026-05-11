@@ -96,6 +96,148 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() => _peopleResults = results);
   }
 
+  Widget _buildDrawer(BuildContext context, PostsProvider provider) {
+    final proseCat = provider.categories.firstWhere(
+      (c) => c.name.toLowerCase() == 'prose',
+      orElse: () => const Category(id: -1, name: 'Prose', slug: 'prose', count: 0),
+    );
+    final poemsCat = provider.categories.firstWhere(
+      (c) => c.name.toLowerCase() == 'poems' || c.name.toLowerCase() == 'poetry',
+      orElse: () => const Category(id: -1, name: 'Poems', slug: 'poems', count: 0),
+    );
+
+    return Drawer(
+      backgroundColor: AppColors.background,
+      child: Column(
+        children: [
+          DrawerHeader(
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppColors.outlineVariant, width: 0.5)),
+            ),
+            child: Center(
+              child: Text(
+                'Explore',
+                style: GoogleFonts.ebGaramond(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDrawerItem(
+                  icon: Icons.article_outlined,
+                  label: 'Prose',
+                  selected: provider.selectedCategory?.id == proseCat.id && !provider.filterAnonymous && provider.selectedTag == null,
+                  onTap: () {
+                    Navigator.pop(context);
+                    provider.selectCategory(proseCat.id == -1 ? null : proseCat);
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.auto_stories_outlined,
+                  label: 'Poems',
+                  selected: provider.selectedCategory?.id == poemsCat.id && !provider.filterAnonymous && provider.selectedTag == null,
+                  onTap: () {
+                    Navigator.pop(context);
+                    provider.selectCategory(poemsCat.id == -1 ? null : poemsCat);
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.visibility_off_outlined,
+                  label: 'Anonymous Submissions',
+                  selected: provider.filterAnonymous,
+                  onTap: () {
+                    Navigator.pop(context);
+                    provider.toggleAnonymousFilter();
+                  },
+                ),
+                const Divider(height: 32, indent: 20, endIndent: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Text(
+                    'SORT BY TAGS',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      color: AppColors.outline,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.outlineVariant),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: provider.selectedTag,
+                        hint: Text('Select a tag', style: GoogleFonts.inter(fontSize: 14)),
+                        dropdownColor: AppColors.background,
+                        items: [
+                          DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('All Tags', style: GoogleFonts.inter(fontSize: 14)),
+                          ),
+                          ...provider.allTags.map((tag) => DropdownMenuItem<String>(
+                            value: tag,
+                            child: Text(tag, style: GoogleFonts.inter(fontSize: 14)),
+                          )),
+                        ],
+                        onChanged: (tag) {
+                          Navigator.pop(context);
+                          provider.selectTag(tag);
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              'v1.0.4',
+              style: GoogleFonts.inter(fontSize: 10, color: AppColors.outline),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: selected ? AppColors.primary : AppColors.onSurfaceVariant),
+      title: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 15,
+          fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          color: selected ? AppColors.primary : AppColors.onSurface,
+        ),
+      ),
+      selected: selected,
+      selectedTileColor: AppColors.primary.withValues(alpha: 0.05),
+      onTap: onTap,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Consumer wraps the Scaffold — NOT inside slivers[] (which requires RenderSliver)
@@ -103,6 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, provider, _) {
         return Scaffold(
           backgroundColor: AppColors.background,
+          drawer: _buildDrawer(context, provider),
           body: RefreshIndicator(
             onRefresh: provider.refresh,
             displacement: 100,
@@ -110,7 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
               controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                _buildAppBar(),
+                _buildAppBar(provider),
                 _buildCategoryBar(provider),
                 ..._buildBodySlivers(provider),
               ],
@@ -123,17 +266,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ─── AppBar ──────────────────────────────────────────────────────────────
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar(PostsProvider provider) {
     return SliverAppBar(
       pinned: true,
       floating: false,
       backgroundColor: AppColors.background,
       elevation: 0,
       shadowColor: AppColors.outlineVariant.withValues(alpha: 0.3),
-      leading: IconButton(
-        icon: const Icon(Icons.menu, color: AppColors.primary),
-        onPressed: () {},
-        tooltip: 'Menu',
+      leading: Builder(
+        builder: (context) => IconButton(
+          icon: const Icon(Icons.menu, color: AppColors.primary),
+          onPressed: () => Scaffold.of(context).openDrawer(),
+          tooltip: 'Menu',
+        ),
       ),
       title: AnimatedSwitcher(
         duration: const Duration(milliseconds: 220),

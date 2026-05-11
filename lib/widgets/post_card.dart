@@ -12,6 +12,7 @@ import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/providers/bookmarks_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/widgets/save_to_collection_sheet.dart';
+import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/app_theme.dart';
 
 /// Editorial post card — mirrors the Stitch design's surface-container-low
@@ -67,7 +68,14 @@ class _FeaturedCard extends StatelessWidget {
                 Positioned(
                   top: 16,
                   right: 16,
-                  child: _BookmarkButton.fromPost(post, floating: true),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const _ShareButton(floating: true, size: 28),
+                      const SizedBox(width: 8),
+                      _BookmarkButton.fromPost(post, floating: true, size: 28),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -87,7 +95,7 @@ class _FeaturedCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       height: 1.1,
                       letterSpacing: -0.5,
-                      color: AppColors.onSurface,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
@@ -98,7 +106,7 @@ class _FeaturedCard extends StatelessWidget {
                     style: GoogleFonts.ebGaramond(
                       fontSize: 18,
                       height: 1.6,
-                      color: AppColors.onSurfaceVariant,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
@@ -117,6 +125,7 @@ class _FeaturedCard extends StatelessWidget {
                         likeCount: 0,
                         commentCount: 0,
                         reshareCount: 0,
+                        onComment: () => context.push('/post/${post.id}?comment=true', extra: post),
                       ),
                     ],
                   ),
@@ -157,13 +166,21 @@ class _StandardCard extends StatelessWidget {
                   aspectRatio: 1,
                   child: CachedNetworkImage(
                     imageUrl: post.imageUrl,
-                    width: 120,
-                    height: 120,
-                    fit: BoxFit.cover,
+                    imageBuilder: (context, imageProvider) => Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image(image: imageProvider, fit: BoxFit.cover),
+                        ClipRect(
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                            child: Container(color: Colors.black.withValues(alpha: 0.1)),
+                          ),
+                        ),
+                        Image(image: imageProvider, fit: BoxFit.contain),
+                      ],
+                    ),
                     placeholder: (_, __) => Container(
-                      width: 120,
-                      height: 120,
-                      color: AppColors.surfaceBright,
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     ),
                   ),
                 ),
@@ -183,12 +200,12 @@ class _StandardCard extends StatelessWidget {
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
                         height: 1.2,
-                        color: AppColors.onSurface,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         _AuthorRow(
@@ -197,7 +214,16 @@ class _StandardCard extends StatelessWidget {
                           small: true,
                         ),
                         const Spacer(),
-                        _BookmarkButton.fromPost(post, size: 18),
+                        const _ShareButton(size: 22),
+                        const SizedBox(width: 16),
+                        _BookmarkButton.fromPost(post, size: 24),
+                        const SizedBox(width: 8),
+                        _MoreOptionsButton(
+                          id: post.id.toString(),
+                          title: post.cleanTitle,
+                          link: post.link,
+                          author: post.author,
+                        ),
                       ],
                     ),
                   ],
@@ -233,7 +259,7 @@ class _CardShellState extends State<_CardShell> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
-            color: AppColors.surfaceContainer,
+            color: Theme.of(context).colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
@@ -262,52 +288,48 @@ class _PostImage extends StatelessWidget {
       aspectRatio: aspectRatio,
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            CachedNetworkImage(
-              imageUrl: url,
-              width: double.infinity,
-              height: height,
-              fit: BoxFit.cover,
-              placeholder: (_, __) => Container(
-                width: double.infinity,
-                height: height,
-                color: AppColors.surfaceBright,
-                child: const Center(
-                  child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
-                ),
+        child: CachedNetworkImage(
+          imageUrl: url,
+          imageBuilder: (context, imageProvider) => Stack(
+            fit: StackFit.expand,
+            children: [
+              // Blurred Background
+              Image(
+                image: imageProvider,
+                fit: BoxFit.cover,
               ),
-              errorWidget: (_, __, ___) => Container(
-                width: double.infinity,
-                height: height,
-                color: AppColors.surfaceBright,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.auto_stories_outlined,
-                        color: AppColors.onSurfaceVariant.withValues(alpha: 0.4), size: 40),
-                  ],
-                ),
-              ),
-            ),
-            // Gradient Overlay (image-fade-overlay)
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      AppColors.surfaceContainer,
-                      AppColors.surfaceContainer.withValues(alpha: 0.0),
-                    ],
-                    stops: const [0.0, 0.4],
+              ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.15),
                   ),
                 ),
               ),
+              // Main Image (Full)
+              Image(
+                image: imageProvider,
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+              ),
+            ],
+          ),
+          placeholder: (_, __) => Container(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
             ),
-          ],
+          ),
+          errorWidget: (_, __, ___) => Container(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.auto_stories_outlined,
+                    color: Color(0x66000000), size: 40),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -339,14 +361,17 @@ class _AuthorRow extends StatelessWidget {
   final String authorName;
   final String authorId;
   final bool small;
+  final bool isAnonymous;
 
   const _AuthorRow({
     required this.authorName,
     required this.authorId,
     this.small = false,
+    this.isAnonymous = false,
   });
 
   Future<Map<String, dynamic>?> _fetchUserInfo() async {
+    if (isAnonymous) return null;
     try {
       return await FirebaseService.instance.getUserPublicInfo(authorId);
     } catch (_) {
@@ -357,13 +382,13 @@ class _AuthorRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.push('/user/$authorId?name=$authorName'),
+      onTap: isAnonymous ? null : () => context.push('/user/$authorId?name=$authorName'),
       child: FutureBuilder<Map<String, dynamic>?>(
         future: _fetchUserInfo(),
         builder: (context, snapshot) {
           final info = snapshot.data;
-          final username = info?['username'] as String? ?? authorName;
-          final avatarUrl = info?['profilePicture'] as String?;
+          final username = isAnonymous ? 'Anonymous' : (info?['username'] as String? ?? authorName);
+          final avatarUrl = info?['photoURL'] as String? ?? info?['profilePicture'] as String?;
 
           return Row(
             mainAxisSize: MainAxisSize.min,
@@ -376,15 +401,12 @@ class _AuthorRow extends StatelessWidget {
                 child: CircleAvatar(
                   radius: small ? 16 : 24,
                   backgroundColor: AppColors.surfaceBright,
-                  backgroundImage: avatarUrl != null ? CachedNetworkImageProvider(avatarUrl) : null,
-                  child: avatarUrl == null
-                      ? Text(
-                          authorName[0].toUpperCase(),
-                          style: GoogleFonts.ebGaramond(
-                            fontSize: small ? 14 : 20,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
+                  backgroundImage: (!isAnonymous && avatarUrl != null) ? CachedNetworkImageProvider(avatarUrl) : null,
+                  child: (isAnonymous || avatarUrl == null)
+                      ? Icon(
+                          isAnonymous ? Icons.person_outline : Icons.person,
+                          size: small ? 18 : 28,
+                          color: AppColors.primary,
                         )
                       : null,
                 ),
@@ -395,22 +417,38 @@ class _AuthorRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '@$username',
+                    isAnonymous ? 'Anonymous' : '@$username',
                     style: GoogleFonts.ebGaramond(
                       fontSize: small ? 14 : 18,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.onSurface,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
-                  Text(
-                    'SUBSCRIBE',
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                      color: AppColors.onSurfaceVariant,
+                  if (!isAnonymous)
+                    GestureDetector(
+                      onTap: () async {
+                        final auth = context.read<AuthProvider>();
+                        if (auth.uid == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Sign in to subscribe.')));
+                          return;
+                        }
+                        await FirebaseService.instance.subscribe(auth.uid!, authorId, targetName: username);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Subscribed to @$username')));
+                        }
+                      },
+                      child: Text(
+                        'SUBSCRIBE',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: AppColors.primary,
+                        ),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ],
@@ -430,6 +468,9 @@ class _EngagementRow extends StatelessWidget {
   final bool isLiked;
   final bool isReshared;
   final bool small;
+  final VoidCallback? onLike;
+  final VoidCallback? onComment;
+  final VoidCallback? onReshare;
 
   const _EngagementRow({
     required this.likeCount,
@@ -438,6 +479,9 @@ class _EngagementRow extends StatelessWidget {
     this.isLiked = false,
     this.isReshared = false,
     this.small = false,
+    this.onLike,
+    this.onComment,
+    this.onReshare,
   });
 
   @override
@@ -448,39 +492,62 @@ class _EngagementRow extends StatelessWidget {
         _EngagementItem(
           icon: isLiked ? Icons.favorite : Icons.favorite_border,
           count: likeCount,
-          color: isLiked ? Colors.redAccent : AppColors.onSurfaceVariant,
+          color: isLiked ? Colors.redAccent : Theme.of(context).colorScheme.onSurfaceVariant,
           small: small,
+          onTap: () {
+            final auth = context.read<AuthProvider>();
+            if (!auth.isAuthenticated) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Sign in to like posts', style: GoogleFonts.literata(color: Colors.white)),
+                  backgroundColor: AppColors.primary,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+              return;
+            }
+            onLike?.call();
+          },
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: small ? 24 : 36),
         _EngagementItem(
           icon: Icons.chat_bubble_outline,
           count: commentCount,
           small: small,
+          onTap: onComment,
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: small ? 24 : 36),
         _EngagementItem(
           icon: Icons.repeat,
           count: reshareCount,
-          color: isReshared ? Colors.greenAccent : AppColors.onSurfaceVariant,
+          color: isReshared ? Colors.greenAccent : Theme.of(context).colorScheme.onSurfaceVariant,
           small: small,
-        ),
-        const SizedBox(width: 8),
-        Icon(
-          Icons.ios_share,
-          size: small ? 14 : 18,
-          color: AppColors.onSurfaceVariant,
+          onTap: () {
+            final auth = context.read<AuthProvider>();
+            if (!auth.isAuthenticated) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Sign in to reshare', style: GoogleFonts.literata(color: Colors.white)),
+                  backgroundColor: AppColors.primary,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+              return;
+            }
+            onReshare?.call();
+          },
         ),
       ],
     );
-  }
 }
 
-class _EngagementItem extends StatelessWidget {
+class _EngagementItem extends StatefulWidget {
   final IconData icon;
   final int count;
   final String? label;
   final Color? color;
   final bool small;
+  final VoidCallback? onTap;
 
   const _EngagementItem({
     required this.icon,
@@ -488,28 +555,72 @@ class _EngagementItem extends StatelessWidget {
     this.label,
     this.color,
     this.small = false,
+    this.onTap,
   });
 
   @override
+  State<_EngagementItem> createState() => _EngagementItemState();
+}
+
+class _EngagementItemState extends State<_EngagementItem> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 50),
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    if (widget.onTap == null) return;
+    _controller.forward(from: 0);
+    widget.onTap!();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: small ? 16 : 20,
-          color: color ?? AppColors.onSurfaceVariant,
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label ?? count.toString(),
-          style: GoogleFonts.inter(
-            fontSize: small ? 9 : 10,
-            fontWeight: FontWeight.w600,
-            color: AppColors.onSurfaceVariant,
+    return GestureDetector(
+      onTap: _handleTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: ScaleTransition(
+          scale: _scaleAnimation,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                widget.icon,
+                size: widget.small ? 20 : 24,
+                color: widget.color ?? Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                widget.label ?? widget.count.toString(),
+                style: GoogleFonts.inter(
+                  fontSize: widget.small ? 10 : 12,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -662,6 +773,140 @@ class _BookmarkButton extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _MoreOptionsButton extends StatelessWidget {
+  final String id;
+  final String title;
+  final String link;
+  final String author;
+
+  const _MoreOptionsButton({
+    required this.id,
+    required this.title,
+    required this.link,
+    required this.author,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_horiz),
+      iconSize: 22,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 180),
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      iconColor: Theme.of(context).colorScheme.onSurfaceVariant,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onSelected: (value) async {
+        switch (value) {
+          case 'share':
+            await Share.share('$title\n\nRead it on The 21st Romanticists:\n$link');
+            break;
+          case 'copy':
+            await Clipboard.setData(ClipboardData(text: link));
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Link copied to clipboard', style: GoogleFonts.inter()),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+            break;
+          case 'report':
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Report submitted. Thank you.', style: GoogleFonts.inter()),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'share',
+          child: Row(
+            children: [
+              const Icon(Icons.share_outlined, size: 18),
+              const SizedBox(width: 12),
+              Text('Share Post', style: GoogleFonts.inter(fontSize: 14)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'copy',
+          child: Row(
+            children: [
+              const Icon(Icons.copy_outlined, size: 18),
+              const SizedBox(width: 12),
+              Text('Copy Link', style: GoogleFonts.inter(fontSize: 14)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'report',
+          child: Row(
+            children: [
+              Icon(Icons.report_gmailerrorred_outlined, size: 18, color: Theme.of(context).colorScheme.error),
+              const SizedBox(width: 12),
+              Text(
+                'Report Content', 
+                style: GoogleFonts.inter(fontSize: 14, color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ShareButton extends StatelessWidget {
+  final bool floating;
+  final double size;
+  
+  const _ShareButton({this.floating = false, this.size = 20});
+  
+  @override
+  Widget build(BuildContext context) {
+    Widget button = Container(
+      padding: EdgeInsets.all(floating ? 10 : 0),
+      decoration: floating ? BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.3),
+        shape: BoxShape.circle,
+      ) : null,
+      child: Icon(
+        Icons.ios_share,
+        size: size,
+        color: floating ? Colors.white : AppColors.onSurfaceVariant,
+      ),
+    );
+
+    if (floating) {
+      button = ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: button,
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () {
+        // Implement share logic later
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: button,
+      ),
     );
   }
 }
@@ -855,7 +1100,14 @@ class _FeaturedSubmissionCard extends StatelessWidget {
                   Positioned(
                     top: 16,
                     right: 16,
-                    child: _BookmarkButton.fromItem(item, floating: true),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const _ShareButton(floating: true, size: 28),
+                        const SizedBox(width: 8),
+                        _BookmarkButton.fromItem(item, floating: true, size: 28),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -874,7 +1126,7 @@ class _FeaturedSubmissionCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       height: 1.1,
                       letterSpacing: -0.5,
-                      color: AppColors.onSurface,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
@@ -885,7 +1137,7 @@ class _FeaturedSubmissionCard extends StatelessWidget {
                     style: GoogleFonts.ebGaramond(
                       fontSize: 18,
                       height: 1.6,
-                      color: AppColors.onSurfaceVariant,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
@@ -908,6 +1160,7 @@ class _FeaturedSubmissionCard extends StatelessWidget {
                       _AuthorRow(
                         authorName: item.authorName,
                         authorId: item.authorFirebaseId,
+                        isAnonymous: item.submission?.isAnonymous ?? false,
                       ),
                       const Spacer(),
                       _EngagementRow(
@@ -916,6 +1169,15 @@ class _FeaturedSubmissionCard extends StatelessWidget {
                         reshareCount: item.reshareCount,
                         isLiked: item.isLiked,
                         isReshared: item.isReshared,
+                        onComment: () {
+                          if (item.isSubmission) {
+                            context.push('/submission/${item.uniqueId}?comment=true', extra: item.submission);
+                          } else {
+                            context.push('/post/${item.wpPost!.id}?comment=true', extra: item.wpPost);
+                          }
+                        },
+                        onLike: () => context.read<PostsProvider>().toggleLike(item),
+                        onReshare: () => context.read<PostsProvider>().toggleReshare(item),
                       ),
                     ],
                   ),
@@ -947,18 +1209,12 @@ class _StandardSubmissionCard extends StatelessWidget {
                   topLeft: Radius.circular(16),
                   bottomLeft: Radius.circular(16),
                 ),
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: CachedNetworkImage(
-                    imageUrl: item.imageUrl!,
-                    width: 120,
-                    height: 120,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      width: 120, height: 120,
-                      color: AppColors.surfaceBright,
-                    ),
-                    errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                child: SizedBox(
+                  width: 140,
+                  height: 140, // Match the typical height of the content side
+                  child: _PostImage(
+                    url: item.imageUrl!,
+                    aspectRatio: 1, // Keep it square but use the "fit" logic
                   ),
                 ),
               ),
@@ -976,18 +1232,19 @@ class _StandardSubmissionCard extends StatelessWidget {
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
                         height: 1.2,
-                        color: AppColors.onSurface,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         _AuthorRow(
                           authorName: item.authorName,
                           authorId: item.authorFirebaseId,
                           small: true,
+                          isAnonymous: item.submission?.isAnonymous ?? false,
                         ),
                         const Spacer(),
                         _EngagementRow(
@@ -997,9 +1254,21 @@ class _StandardSubmissionCard extends StatelessWidget {
                           isLiked: item.isLiked,
                           isReshared: item.isReshared,
                           small: true,
+                          onComment: () => context.push('/submission/${item.uniqueId}?comment=true', extra: item.submission),
+                          onLike: () => context.read<PostsProvider>().toggleLike(item),
+                          onReshare: () => context.read<PostsProvider>().toggleReshare(item),
                         ),
-                        const SizedBox(width: 12),
-                        _BookmarkButton.fromItem(item, size: 18),
+                        const SizedBox(width: 16),
+                        const _ShareButton(size: 22),
+                        const SizedBox(width: 16),
+                        _BookmarkButton.fromItem(item, size: 24),
+                        const SizedBox(width: 8),
+                        _MoreOptionsButton(
+                          id: item.uniqueId,
+                          title: item.title,
+                          link: item.wpPost?.link ?? '',
+                          author: item.authorName,
+                        ),
                       ],
                     ),
                   ],
@@ -1046,7 +1315,7 @@ class _CommunityBadge extends StatelessWidget {
             fontSize: 11,
             fontWeight: FontWeight.w500,
             letterSpacing: 0.5,
-            color: AppColors.secondary,
+            color: Theme.of(context).colorScheme.secondary,
             fontStyle: FontStyle.italic,
           ),
         ),
@@ -1065,7 +1334,7 @@ class _InlineTag extends StatelessWidget {
       '#$tag',
       style: GoogleFonts.inter(
         fontSize: 11,
-        color: AppColors.primary.withValues(alpha: 0.6),
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
         fontWeight: FontWeight.w600,
       ),
     );

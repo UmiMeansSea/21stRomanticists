@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
+import 'package:romanticists_app/providers/theme_provider.dart';
 
 /// Premium settings screen — account management, app info, sign-out.
 class SettingsScreen extends StatefulWidget {
@@ -40,9 +41,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final user = auth.user;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -52,7 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: GoogleFonts.ebGaramond(
             fontSize: 22,
             fontWeight: FontWeight.w500,
-            color: AppColors.primary,
+            color: Theme.of(context).appBarTheme.titleTextStyle?.color,
           ),
         ),
         centerTitle: true,
@@ -173,6 +174,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 8),
 
+          // ── Appearance section ──────────────────────────────────────────
+          _SectionHeader(label: 'Appearance'),
+          Consumer<ThemeProvider>(
+            builder: (context, theme, child) {
+              return SwitchListTile(
+                secondary: Icon(
+                  theme.isDarkMode ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                title: Text(
+                  'Dark Mode',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                value: theme.isDarkMode,
+                onChanged: (value) => theme.toggleTheme(value),
+                activeColor: Theme.of(context).colorScheme.primary,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              );
+            },
+          ),
+
+          const SizedBox(height: 8),
+
           // ── About section ────────────────────────────────────────────────
           _SectionHeader(label: 'About'),
           _SettingsTile(
@@ -222,7 +251,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).dialogBackgroundColor,
         title: Text('Sign Out',
             style: GoogleFonts.ebGaramond(fontSize: 22, fontWeight: FontWeight.w500)),
         content: Text(
@@ -233,7 +262,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text('Cancel',
-                style: GoogleFonts.inter(color: AppColors.onSurfaceVariant)),
+                style: GoogleFonts.inter(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           TextButton(
             onPressed: () async {
@@ -246,7 +275,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: AppColors.error, fontWeight: FontWeight.w600)),
           ),
         ],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

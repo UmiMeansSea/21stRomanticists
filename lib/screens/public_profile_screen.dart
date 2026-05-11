@@ -45,7 +45,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
     try {
       final info = await service.getUserPublicInfo(widget.userId);
-      final subs = await service.getUserSubmissions(widget.userId);
+      final allSubs = await service.getUserSubmissions(widget.userId);
+      final subs = allSubs.where((s) => !s.isAnonymous).toList();
       final followers = await service.getFollowerCount(widget.userId);
       
       bool subscribed = false;
