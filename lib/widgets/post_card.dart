@@ -233,6 +233,7 @@ class _WpEditorialLayout extends StatelessWidget {
                     title: post.cleanTitle,
                     link: post.link,
                     author: post.author,
+                    authorId: post.authorId.toString(),
                   ),
                 ],
               ),
@@ -317,6 +318,7 @@ class _WpTweetLayout extends StatelessWidget {
                         title: post.cleanTitle,
                         link: post.link,
                         author: post.author,
+                        authorId: post.authorId.toString(),
                       ),
                     ],
                   ),
@@ -430,6 +432,7 @@ class _PostImage extends StatelessWidget {
               ),
             ],
           ),
+          memCacheWidth: 800, // Optimize image decoding performance
           placeholder: (_, __) => Container(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: const Center(
@@ -438,12 +441,9 @@ class _PostImage extends StatelessWidget {
           ),
           errorWidget: (_, __, ___) => Container(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.auto_stories_outlined,
-                    color: Color(0x66000000), size: 40),
-              ],
+            child: const Center(
+              child: Icon(Icons.auto_stories_outlined,
+                  color: Color(0x66000000), size: 40),
             ),
           ),
         ),
@@ -552,31 +552,6 @@ class _AuthorRow extends StatelessWidget {
                       letterSpacing: -0.2,
                     ),
                   ),
-                  if (!isAnonymous)
-                    GestureDetector(
-                      onTap: () async {
-                        final auth = context.read<AuthProvider>();
-                        if (auth.uid == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Sign in to subscribe.')));
-                          return;
-                        }
-                        await FirebaseService.instance.subscribe(auth.uid!, authorId, targetName: username);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Subscribed to @$username')));
-                        }
-                      },
-                      child: Text(
-                        'SUBSCRIBE',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.0,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ],
@@ -916,12 +891,14 @@ class _MoreOptionsButton extends StatelessWidget {
   final String title;
   final String link;
   final String author;
+  final String authorId;
 
   const _MoreOptionsButton({
     required this.id,
     required this.title,
     required this.link,
     required this.author,
+    required this.authorId,
   });
 
   @override
@@ -943,18 +920,40 @@ class _MoreOptionsButton extends StatelessWidget {
             await Clipboard.setData(ClipboardData(text: link));
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Link copied to clipboard', style: GoogleFonts.inter()),
+                const SnackBar(
+                  content: Text('Link copied to clipboard'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
             }
             break;
+          case 'subscribe':
+            final auth = context.read<AuthProvider>();
+            if (auth.uid == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Sign in to subscribe.')));
+              return;
+            }
+            // Optimistic UI feedback
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Subscribed to @$author'),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: AppColors.primary,
+              ),
+            );
+            try {
+              await FirebaseService.instance.subscribe(auth.uid!, authorId, targetName: author);
+            } catch (e) {
+              // Silently fail as the user already got feedback, or show error if critical
+              debugPrint('Subscription failed: $e');
+            }
+            break;
           case 'report':
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Report submitted. Thank you.', style: GoogleFonts.inter()),
+                const SnackBar(
+                  content: Text('Report submitted. Thank you.'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -980,6 +979,16 @@ class _MoreOptionsButton extends StatelessWidget {
               const Icon(Icons.copy_outlined, size: 18),
               const SizedBox(width: 12),
               Text('Copy Link', style: GoogleFonts.inter(fontSize: 14)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'subscribe',
+          child: Row(
+            children: [
+              const Icon(Icons.person_add_alt_1_outlined, size: 18),
+              const SizedBox(width: 12),
+              Text('Subscribe', style: GoogleFonts.inter(fontSize: 14)),
             ],
           ),
         ),
@@ -1303,7 +1312,18 @@ class _EditorialLayout extends StatelessWidget {
               const SizedBox(height: 16),
               const Divider(height: 1, color: AppColors.surfaceBright),
               const SizedBox(height: 12),
-              _BottomActionBar(item: item, isAnon: isAnon),
+              Row(
+                children: [
+                  _AuthorRow(
+                    authorName: item.authorName,
+                    authorId: item.authorFirebaseId,
+                    small: true,
+                    isAnonymous: isAnon,
+                  ),
+                  const Spacer(),
+                  _BottomActionBar(item: item, isAnon: isAnon),
+                ],
+              ),
             ],
           ),
         ),
@@ -1397,6 +1417,13 @@ class _BottomActionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        _AuthorRow(
+          authorName: item.authorName,
+          authorId: item.authorFirebaseId,
+          small: true,
+          isAnonymous: isAnon,
+        ),
+        const SizedBox(width: 12),
         _EngagementRow(
           likeCount: item.likeCount,
           commentCount: item.commentCount,
@@ -1419,6 +1446,7 @@ class _BottomActionBar extends StatelessWidget {
           title: item.title,
           link: item.wpPost?.link ?? '',
           author: item.authorName,
+          authorId: item.authorFirebaseId,
         ),
       ],
     );

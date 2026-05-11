@@ -59,8 +59,10 @@ class BookmarksProvider extends ChangeNotifier {
     } catch (e) {
       _status = BookmarksStatus.failure;
       _errorMessage = 'Could not load bookmarks.';
+    } finally {
+      // Ensure we notify listeners to clear loading state
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   // ─── Toggle (optimistic) ───────────────────────────────────────────────────
