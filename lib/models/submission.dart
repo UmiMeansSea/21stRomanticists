@@ -126,7 +126,9 @@ class Submission {
   }
 
   Map<String, dynamic> toJson() => {
-        if (userId != null) 'userId': userId,
+        // [FIX] Always write userId so getUserSubmissions can always find this
+        // document. Anonymous posts hide the authorName, not the userId field.
+        'userId': userId,
         'authorName': isAnonymous ? 'Anonymous' : authorName,
         'title': title,
         'category': category.name,

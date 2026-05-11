@@ -13,7 +13,6 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
     
-    /*
     splits {
         abi {
             isEnable = true
@@ -22,7 +21,6 @@ android {
             isUniversalApk = false
         }
     }
-    */
 
 
     compileOptions {

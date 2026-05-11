@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
-import 'package:romanticists_app/providers/bookmarks_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
-import 'package:romanticists_app/services/collections_service.dart';
 import 'package:romanticists_app/providers/collections_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -25,7 +21,6 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   List<Submission>? _submissions;
   List<Submission>? _drafts;
-  List<PostCollection>? _collections;
   Map<String, dynamic>? _firestoreData;
   String? _error;
   bool _loading = false;
@@ -40,6 +35,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final uid = context.read<AuthProvider>().user?.uid;
     if (uid == null) return;
 
+    // [Async Safety] Trigger background loads BEFORE first await to avoid context issues
+    context.read<CollectionsProvider>().load(uid);
+
     // 1. Optimistic Cache Load
     final cachedSubs = await FirebaseService.instance.getCachedUserSubmissions(uid, status: SubmissionStatus.approved);
     final cachedDrafts = await FirebaseService.instance.getCachedUserSubmissions(uid, status: SubmissionStatus.draft);
@@ -47,28 +45,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (mounted) {
       setState(() {
-        if (_submissions == null) _submissions = cachedSubs;
-        if (_drafts == null) _drafts = cachedDrafts;
-        if (_firestoreData == null) _firestoreData = cachedData;
+        _submissions ??= cachedSubs;
+        _drafts ??= cachedDrafts;
+        _firestoreData ??= cachedData;
         _loading = (_submissions == null || _submissions!.isEmpty);
         _error = null;
       });
     }
 
     try {
-      // 2. Trigger background loads
-      context.read<CollectionsProvider>().load(uid);
-      
-      // 3. Fetch Fresh Data (Network)
-      final subs = await FirebaseService.instance.getUserSubmissions(uid, status: SubmissionStatus.approved);
-      final drafts = await FirebaseService.instance.getUserSubmissions(uid, status: SubmissionStatus.draft);
-      final data = await FirebaseService.instance.getUserPublicInfo(uid);
-      
+      // 3. [PERF FIX] Fetch approved submissions, drafts, and profile data
+      //    in parallel instead of sequentially. Cuts load time by ~2/3.
+      final results = await Future.wait([
+        FirebaseService.instance.getUserSubmissions(uid, status: SubmissionStatus.approved),
+        FirebaseService.instance.getUserSubmissions(uid, status: SubmissionStatus.draft),
+        FirebaseService.instance.getUserPublicInfo(uid),
+      ]);
+
       if (mounted) {
         setState(() {
-          _submissions = subs;
-          _drafts = drafts;
-          _firestoreData = data;
+          _submissions = results[0] as List<Submission>;
+          _drafts = results[1] as List<Submission>;
+          _firestoreData = results[2] as Map<String, dynamic>?;
         });
       }
     } on FirebaseServiceException catch (e) {
@@ -88,7 +86,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final user = auth.user;
     final name = user?.displayName ?? 'Romanticist';
-    final email = user?.email ?? '';
     final photoUrl = user?.photoURL;
 
     if (_error != null) {
@@ -246,10 +243,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             icon: const Icon(Icons.share_outlined, size: 20),
                             color: AppColors.onSurface,
                             onPressed: () {
-                              final profileLink = "https://romanticists.app/profile/${user?.uid}";
+                              final profileLink = 'https://romanticists.app/profile/${user?.uid}';
                               Share.share(
-                                "Check out $name on The 21st Romanticists: $profileLink",
-                                subject: "Poet Profile on The 21st Romanticists",
+                                'Check out $name on The 21st Romanticists: $profileLink',
+                                subject: 'Poet Profile on The 21st Romanticists',
                               );
                             },
                           ),
@@ -469,11 +466,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildEmptyPlaceholder(String title) {
-    return Center(
-      child: Text(title, style: GoogleFonts.ebGaramond(fontSize: 18)),
-    );
-  }
+
 }
 
 class _StatItem extends StatelessWidget {
@@ -631,18 +624,15 @@ class _GridCard extends StatelessWidget {
   Widget build(BuildContext context) {
     String? imageUrl;
     String title;
-    String? category;
     String? route;
 
     if (item is Submission) {
       imageUrl = item.imageUrl;
       title = item.title;
-      category = (item.tags != null && item.tags!.isNotEmpty) ? item.tags!.first : 'WORK';
       route = '/submission/${item.id}';
     } else if (item is Post) {
       imageUrl = item.imageUrl;
       title = item.cleanTitle;
-      category = item.categoryName;
       route = '/post/${item.id}';
     } else {
       title = 'Unknown';

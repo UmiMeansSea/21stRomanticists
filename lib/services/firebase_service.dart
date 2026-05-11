@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/models/feed_item.dart';
@@ -275,25 +275,33 @@ class FirebaseService {
   }
 
   /// Returns submissions belonging to [userId], optionally filtered by [status].
+  /// [FIXED] Fetches ALL submissions where userId matches — including anonymous
+  /// ones — since the profile belongs to the authenticated user.
+  /// Anonymous posts still store userId in Firestore via toJson(); the
+  /// authorName is just replaced with 'Anonymous' for public display.
   Future<List<Submission>> getUserSubmissions(String userId, {SubmissionStatus? status}) async {
     final cacheKey = '$_userSubmissionsCachePrefix${userId}_all';
     
     try {
-      var query = _db
+      // [FIX] Single query on userId — no status filter at DB level.
+      // This ensures anonymous posts (isAnonymous=true) are still fetched
+      // because they store userId. Status filtering is done client-side so
+      // we can cache everything in one round-trip.
+      final snapshot = await _db
           .collection(_submissionsCol)
-          .where('userId', isEqualTo: userId);
-      
-      final snapshot = await query.get();
+          .where('userId', isEqualTo: userId)
+          .get();
 
-      // Use compute() for mapping if list is potentially large
+      // [Technique: Isolate Parsing] Offload model mapping to background thread
       final rawData = snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
       var list = await compute(_parseSubmissions, rawData);
 
-      // Cache all submissions before filtering
+      // Cache all submissions before filtering for next cache-first read
       final prefs = await SharedPreferences.getInstance();
       final encoded = jsonEncode(list.map((s) => {'id': s.id, ...s.toJson()}).toList());
       await prefs.setString(cacheKey, encoded);
 
+      // Client-side status filter
       if (status != null) {
         list = list.where((s) => s.status == status).toList();
       }

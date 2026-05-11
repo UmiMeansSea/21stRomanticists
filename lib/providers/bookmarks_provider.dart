@@ -123,7 +123,17 @@ class BookmarksProvider extends ChangeNotifier {
       _items.removeWhere((i) => i.uniqueId == id);
     } else {
       _ids.add(id);
-      // We could add a skeleton FeedItem here if we wanted to be truly optimistic
+      _items.insert(0, FeedItem(
+        uniqueId: id,
+        authorName: author,
+        authorFirebaseId: authorFirebaseId,
+        title: title,
+        excerpt: excerpt,
+        imageUrl: imageUrl,
+        publishedAt: publishedAt,
+        isSubmission: id.startsWith('sub_'),
+        categoryLabel: '',
+      ));
     }
     notifyListeners();
 
