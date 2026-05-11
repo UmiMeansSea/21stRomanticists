@@ -34,6 +34,12 @@ app.use('/api/wp', wpRoutes);
 
 app.get('/health', (req, res) => res.status(200).send('OK'));
 
-app.listen(PORT, () => {
-  console.log(`🚀 BFF Server running on port ${PORT}`);
-});
+// Export for Vercel
+module.exports = app;
+
+// Only listen if running directly (not as a serverless function)
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 BFF Server running on port ${PORT}`);
+  });
+}
