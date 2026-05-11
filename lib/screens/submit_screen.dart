@@ -66,7 +66,13 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
   }
 
   bool _hasContent() {
-    return _titleController.text.isNotEmpty || _contentController.text.isNotEmpty;
+    final title = _titleController.text.trim();
+    final content = _contentController.text.trim();
+    final wordCount = content.isEmpty ? 0 : content.split(RegExp(r'\s+')).length;
+    
+    // [Requirement: Strict Auto-Save] 
+    // Only save if title is present AND content has at least 3 words
+    return title.isNotEmpty && wordCount >= 3;
   }
 
   // ── Tags (max 3) ──────────────────────────────────────────────────────────

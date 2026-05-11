@@ -11,6 +11,7 @@ import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/providers/bookmarks_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/services/collections_service.dart';
+import 'package:romanticists_app/providers/collections_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -38,25 +39,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (uid == null) return;
 
     setState(() {
-      _loading = true;
+      _loading = (_submissions == null); // Only show spinner on first load
       _error = null;
     });
 
     try {
+      // Trigger background loads
+      context.read<CollectionsProvider>().load(uid);
+      
+      // These now return cached data immediately (SWR) due to service-level caching
       final subs = await FirebaseService.instance.getUserSubmissions(uid, status: SubmissionStatus.approved);
       final drafts = await FirebaseService.instance.getUserSubmissions(uid, status: SubmissionStatus.draft);
       final data = await FirebaseService.instance.getUserPublicInfo(uid);
-      final cols = await CollectionsService.instance.getCollections(uid);
+      
       if (mounted) {
         setState(() {
           _submissions = subs;
           _drafts = drafts;
           _firestoreData = data;
-          _collections = cols;
         });
       }
     } on FirebaseServiceException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted && _submissions == null) setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -132,7 +136,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             borderRadius: BorderRadius.circular(16),
                             image: photoUrl != null
                                 ? DecorationImage(
-                                    image: NetworkImage(photoUrl),
+                                    image: CachedNetworkImageProvider(
+                                      photoUrl,
+                                      // [Technique: Downsampling] Optimizing avatar memory
+                                      maxWidthDiskCache: 240,
+                                      maxHeightDiskCache: 240,
+                                    ),
                                     fit: BoxFit.cover)
                                 : null,
                             color: AppColors.surfaceContainerHigh,
@@ -324,11 +333,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildCollectionsGrid() {
     final uid = context.read<AuthProvider>().user?.uid ?? '';
-    if (_loading) {
-      return const Center(
-          child: CircularProgressIndicator(color: AppColors.primary));
+    final collectionsProvider = context.watch<CollectionsProvider>();
+    
+    if (collectionsProvider.status == CollectionsStatus.loading && collectionsProvider.items.isEmpty) {
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
-    final cols = _collections ?? [];
+    
+    final cols = collectionsProvider.items;
     if (cols.isEmpty) {
       return Center(
         child: Column(
@@ -678,10 +689,13 @@ class _GridCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (imageUrl != null && imageUrl.isNotEmpty)
-                    Image.network(
-                      imageUrl,
+                    CachedNetworkImage(
+                      imageUrl: imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _placeholder(),
+                      // [Technique: Downsampling] Grid items only need 400px width
+                      memCacheWidth: 400,
+                      placeholder: (_, __) => _placeholderShimmer(),
+                      errorWidget: (_, __, ___) => _placeholder(),
                     )
                   else
                     _placeholder(),
@@ -725,6 +739,13 @@ class _GridCard extends StatelessWidget {
         color: AppColors.surfaceContainerHigh,
         child: const Icon(Icons.auto_stories_outlined, color: AppColors.outline),
       );
+
+  Widget _placeholderShimmer() => Container(
+    color: AppColors.surfaceContainerHigh,
+    child: const Center(
+      child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.outline),
+    ),
+  );
 }
 
 class _EmptyState extends StatelessWidget {

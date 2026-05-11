@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'package:romanticists_app/models/feed_item.dart';
-import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 
@@ -44,24 +45,55 @@ class BookmarksProvider extends ChangeNotifier {
 
   // ─── Load ──────────────────────────────────────────────────────────────────
 
+  static const String _cachePrefix = 'bookmarks_cache_';
+
   Future<void> load(String uid) async {
-    _status = BookmarksStatus.loading;
-    notifyListeners();
+    final cacheKey = '$_cachePrefix$uid';
+    
+    // ── STEP 1: Load from local cache immediately ──
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedJson = prefs.getString(cacheKey);
+      if (cachedJson != null) {
+        final List<dynamic> list = jsonDecode(cachedJson);
+        _items = list.map((item) => FeedItem.fromJson(item as Map<String, dynamic>)).toList();
+        _ids = _items.map((i) => i.uniqueId).toSet();
+        _status = BookmarksStatus.loaded;
+        notifyListeners(); // Render UI instantly
+      } else if (_items.isEmpty) {
+        _status = BookmarksStatus.loading;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Bookmarks cache error: $e');
+    }
+
+    // ── STEP 2: Silently fetch fresh data from Firebase ──
     try {
       final results = await FirebaseService.instance.getBookmarkedFeedItems(uid);
+      
+      // Update state only if data has changed or was empty
       _items = results;
       _ids = results.map((i) => i.uniqueId).toSet();
-
       _status = BookmarksStatus.loaded;
       _errorMessage = null;
+
+      // Update local cache for next time
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = jsonEncode(_items.map((i) => i.toJson()).toList());
+      await prefs.setString(cacheKey, encoded);
+
     } on FirebaseServiceException catch (e) {
-      _status = BookmarksStatus.failure;
-      _errorMessage = e.message;
+      if (_items.isEmpty) {
+        _status = BookmarksStatus.failure;
+        _errorMessage = e.message;
+      }
     } catch (e) {
-      _status = BookmarksStatus.failure;
-      _errorMessage = 'Could not load bookmarks.';
+      if (_items.isEmpty) {
+        _status = BookmarksStatus.failure;
+        _errorMessage = 'Could not load bookmarks.';
+      }
     } finally {
-      // Ensure we notify listeners to clear loading state
       notifyListeners();
     }
   }

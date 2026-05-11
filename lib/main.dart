@@ -9,6 +9,7 @@ import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/providers/bookmarks_provider.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/providers/theme_provider.dart';
+import 'package:romanticists_app/providers/collections_provider.dart';
 import 'package:romanticists_app/screens/bookmarks_screen.dart';
 import 'package:romanticists_app/screens/home_screen.dart';
 import 'package:romanticists_app/screens/notifications_screen.dart';
@@ -138,6 +139,7 @@ class RomanticistsApp extends StatelessWidget {
           create: (ctx) => BookmarksProvider(ctx.read<AuthProvider>()),
           update: (ctx, auth, prev) => prev ?? BookmarksProvider(auth),
         ),
+        ChangeNotifierProvider(create: (_) => CollectionsProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {

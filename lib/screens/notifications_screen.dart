@@ -97,19 +97,17 @@ class _SubscribedFeedState extends State<_SubscribedFeed> {
       return;
     }
 
-    setState(() => _loading = true);
+    // Only show full-screen spinner if we have no data yet
+    if (_posts == null) setState(() => _loading = true);
 
     try {
       final followingIds = await FirebaseService.instance.getFollowingIds(uid);
       if (followingIds.isEmpty) {
-        setState(() {
-          _posts = [];
-          _loading = false;
-        });
+        setState(() { _posts = []; _loading = false; });
         return;
       }
 
-      // Fetch latest submission from each followed author (up to 20)
+      // Fetch latest submissions (these now use SWR at the service level)
       final List<Submission> allPosts = [];
       for (final authorId in followingIds.take(20)) {
         final subs = await FirebaseService.instance.getUserSubmissions(authorId);
@@ -217,19 +215,11 @@ class _NotificationsFeedState extends State<_NotificationsFeed> {
       return;
     }
 
-    setState(() => _loading = true);
+    if (_notifications == null) setState(() => _loading = true);
 
     try {
-      // Fetch notifications from Firestore
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('notifications')
-          .orderBy('createdAt', descending: true)
-          .limit(50)
-          .get();
-
-      final notes = snap.docs.map((d) => d.data()).toList();
+      // Use the new SWR-aware method
+      final notes = await FirebaseService.instance.getNotifications(uid);
       if (mounted) setState(() { _notifications = notes; _loading = false; });
     } catch (_) {
       if (mounted) setState(() { _notifications = []; _loading = false; });
@@ -301,7 +291,11 @@ class _NotificationTile extends StatelessWidget {
     final title = data['postTitle'] as String?;
     final ts = data['createdAt'];
     DateTime? date;
-    if (ts is Timestamp) date = ts.toDate();
+    if (ts is Timestamp) {
+      date = ts.toDate();
+    } else if (ts is String) {
+      date = DateTime.tryParse(ts);
+    }
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

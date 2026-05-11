@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show compute, debugPrint;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 
@@ -17,6 +20,26 @@ class PostCollection {
     this.postCount = 0,
     this.coverImageUrl,
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'createdAt': createdAt.toIso8601String(),
+    'postCount': postCount,
+    'coverImageUrl': coverImageUrl,
+  };
+
+  factory PostCollection.fromJson(Map<String, dynamic> json) {
+    return PostCollection(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now(),
+      postCount: json['postCount'] as int? ?? 0,
+      coverImageUrl: json['coverImageUrl'] as String?,
+    );
+  }
 
   factory PostCollection.fromDoc(DocumentSnapshot doc) {
     final d = doc.data() as Map<String, dynamic>? ?? {};
@@ -48,17 +71,44 @@ class CollectionsService {
   CollectionReference _postsRef(String uid, String colId) =>
       _colRef(uid).doc(colId).collection('posts');
 
-  // ─── Collections CRUD ────────────────────────────────────────────────────
+  static const String _cachePrefix = 'collections_cache_';
 
-  /// Returns all collections for a user, newest first.
+  /// Returns all collections for a user. 
+  /// Note: This does not implement a stream/provider yet, so the caller (ProfileScreen)
+  /// should handle the SWR logic if possible, or we return the cache + fetch fresh.
   Future<List<PostCollection>> getCollections(String uid) async {
+    final cacheKey = '$_cachePrefix$uid';
+    
+    // Attempt cache read
+    List<PostCollection> cached = [];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(cacheKey);
+      if (raw != null) {
+        final List<dynamic> list = jsonDecode(raw);
+        cached = list.map((m) => PostCollection.fromJson(m as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      debugPrint('Collections cache read error: $e');
+    }
+
+    // In a real SWR setup, we'd return a Stream or use a Provider.
+    // For now, if we have cache, return it immediately, and the caller might trigger a refresh.
+    // BUT since this is a Future, let's just fetch fresh and update cache.
     try {
       final snap = await _colRef(uid)
           .orderBy('createdAt', descending: true)
           .get();
-      return snap.docs.map(PostCollection.fromDoc).toList();
+      final fresh = snap.docs.map(PostCollection.fromDoc).toList();
+      
+      // Update cache
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = jsonEncode(fresh.map((c) => c.toJson()).toList());
+      await prefs.setString(cacheKey, encoded);
+
+      return fresh;
     } catch (_) {
-      return [];
+      return cached; // Fallback to cache on error
     }
   }
 

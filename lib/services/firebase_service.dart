@@ -21,6 +21,56 @@ class FirebaseServiceException implements Exception {
   String toString() => 'FirebaseServiceException[$code]: $message';
 }
 
+// ─── Background Parsing Functions ────────────────────────────────────────────
+
+List<Submission> _parseSubmissions(List<Map<String, dynamic>> list) {
+  return list.map((data) => Submission.fromJson(data, id: data['id'])).toList();
+}
+
+List<FeedItem> _parseFeedItems(List<Map<String, dynamic>> list) {
+  return list.map((d) {
+    final id = d['postId']?.toString() ?? '';
+    final isSubmission = id.startsWith('sub_');
+    final isWp = id.startsWith('wp_');
+    
+    int wpId = 0;
+    if (isWp) {
+      wpId = int.tryParse(id.replaceFirst('wp_', '')) ?? 0;
+    } else if (!isSubmission) {
+      wpId = int.tryParse(id) ?? 0;
+    }
+
+    return FeedItem(
+      uniqueId: id,
+      authorFirebaseId: d['authorFirebaseId'] as String? ?? '',
+      authorName: d['author'] as String? ?? 'Anonymous',
+      title: d['title'] as String? ?? '',
+      excerpt: d['excerpt'] as String? ?? '',
+      imageUrl: d['imageUrl'] as String?,
+      publishedAt: d['publishedAt'] is DateTime 
+          ? d['publishedAt'] as DateTime 
+          : DateTime.now(),
+      isSubmission: isSubmission,
+      categoryLabel: d['categoryLabel'] as String? ?? '',
+      tags: ((d['tags'] as List<dynamic>?) ?? []).cast<String>(),
+      wpPost: (isSubmission) ? null : Post(
+        id: wpId,
+        authorId: 0,
+        title: d['title'] as String? ?? '',
+        content: '',
+        excerpt: d['excerpt'] as String? ?? '',
+        author: d['author'] as String? ?? '',
+        imageUrl: d['imageUrl'] as String? ?? '',
+        publishedAt: DateTime.now(),
+        categories: [],
+        tagNames: [],
+        slug: d['slug'] as String? ?? '',
+        link: d['link'] as String? ?? '',
+      ),
+    );
+  }).toList();
+}
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 /// Singleton service wrapping Cloud Firestore operations.
@@ -126,17 +176,35 @@ class FirebaseService {
     }
   }
 
+  static const String _followingCachePrefix = 'following_ids_cache_';
+
   /// Returns the list of IDs this user is following.
   Future<List<String>> getFollowingIds(String uid) async {
+    final cacheKey = '$_followingCachePrefix$uid';
+    
+    // Cache read
+    List<String> cached = [];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(cacheKey);
+      if (raw != null) cached = List<String>.from(jsonDecode(raw));
+    } catch (_) {}
+
     try {
       final snapshot = await _db
           .collection(_usersCol)
           .doc(uid)
           .collection(_followingSub)
           .get();
-      return snapshot.docs.map((doc) => doc.id).toList();
+      final fresh = snapshot.docs.map((doc) => doc.id).toList();
+      
+      // Cache write
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(cacheKey, jsonEncode(fresh));
+      
+      return fresh;
     } catch (e) {
-      return [];
+      return cached;
     }
   }
 
@@ -184,8 +252,25 @@ class FirebaseService {
     }
   }
 
+  static const String _userSubmissionsCachePrefix = 'user_subs_cache_';
+
   /// Returns submissions belonging to [userId], optionally filtered by [status].
   Future<List<Submission>> getUserSubmissions(String userId, {SubmissionStatus? status}) async {
+    final cacheKey = '$_userSubmissionsCachePrefix${userId}_${status?.value ?? "all"}';
+    
+    // Attempt cache read
+    List<Submission> cached = [];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(cacheKey);
+      if (raw != null) {
+        final List<dynamic> list = jsonDecode(raw);
+        cached = list.map((m) => Submission.fromJson(m as Map<String, dynamic>, id: m['id'])).toList();
+      }
+    } catch (e) {
+      debugPrint('User submissions cache error: $e');
+    }
+
     try {
       var query = _db
           .collection(_submissionsCol)
@@ -197,19 +282,26 @@ class FirebaseService {
 
       final snapshot = await query.get();
 
-      final list = snapshot.docs
-          .map((doc) => Submission.fromJson(doc.data(), id: doc.id))
-          .toList();
+      // Use compute() for mapping if list is potentially large
+      final rawData = snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+      final list = await compute(_parseSubmissions, rawData);
 
       list.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+      
+      // Update cache
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = jsonEncode(list.map((s) => {'id': s.id, ...s.toJson()}).toList());
+      await prefs.setString(cacheKey, encoded);
+
       return list;
     } on FirebaseException catch (e) {
+      if (cached.isNotEmpty) return cached;
       throw FirebaseServiceException(
         e.message ?? 'Failed to fetch submissions.',
         code: e.code,
       );
     } catch (e) {
-      throw FirebaseServiceException('Unexpected error: $e');
+      return cached;
     }
   }
 
@@ -223,14 +315,13 @@ class FirebaseService {
           .limit(100)
           .get();
 
-      final list = snapshot.docs
-          .map((doc) => Submission.fromJson(doc.data(), id: doc.id))
-          .toList();
+      // [Technique: Isolate Parsing] Offload model mapping to background thread
+      final rawData = snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+      final list = await compute(_parseSubmissions, rawData);
 
       list.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
       return list.take(limit).toList();
     } catch (_) {
-      // Submissions are supplementary — fail silently so WP posts still show
       return [];
     }
   }
@@ -358,6 +449,57 @@ class FirebaseService {
 
   static const _notificationsSub = 'notifications';
 
+  static const String _notificationsCachePrefix = 'notifications_cache_';
+
+  /// Fetches notifications with SWR caching.
+  Future<List<Map<String, dynamic>>> getNotifications(String uid) async {
+    final cacheKey = '$_notificationsCachePrefix$uid';
+    
+    // Cache read
+    List<Map<String, dynamic>> cached = [];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(cacheKey);
+      if (raw != null) {
+        final List<dynamic> list = jsonDecode(raw);
+        cached = list.map((m) {
+          final map = Map<String, dynamic>.from(m);
+          // DateTime back to Timestamp or just keep as String/DateTime?
+          // Since it's for UI, we'll convert the saved ISO string to a DateTime or Map
+          return map;
+        }).toList();
+      }
+    } catch (_) {}
+
+    try {
+      final snap = await _db
+          .collection(_usersCol)
+          .doc(uid)
+          .collection(_notificationsSub)
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .get();
+
+      final fresh = snap.docs.map((d) {
+        final data = d.data();
+        return {
+          ...data,
+          'id': d.id,
+          // Convert Timestamp to ISO string for JSON storage
+          'createdAt': (data['createdAt'] as Timestamp?)?.toDate().toIso8601String(),
+        };
+      }).toList();
+
+      // Cache write
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(cacheKey, jsonEncode(fresh));
+
+      return fresh;
+    } catch (_) {
+      return cached;
+    }
+  }
+
   /// Writes a notification document to a target user's notifications subcollection.
   Future<void> sendNotification({
     required String targetUid,
@@ -409,52 +551,17 @@ class FirebaseService {
           .orderBy('savedAt', descending: true)
           .get();
 
-      return snapshot.docs.map<FeedItem>((doc) {
+      // [Technique: Isolate Parsing] Offload mapping logic to background isolate
+      final rawData = snapshot.docs.map((doc) {
         final d = doc.data();
-        final id = d['postId']?.toString() ?? '';
-        
-        // Correctly identify content type based on prefix
-        final isSubmission = id.startsWith('sub_');
-        final isWp = id.startsWith('wp_');
-        
-        // Strip prefix for parsing if it's a WP post
-        int wpId = 0;
-        if (isWp) {
-          wpId = int.tryParse(id.replaceFirst('wp_', '')) ?? 0;
-        } else if (!isSubmission) {
-          // Legacy check: if no prefix but all numeric, it's WP
-          wpId = int.tryParse(id) ?? 0;
-        }
-
-        return FeedItem(
-          uniqueId: id,
-          authorFirebaseId: d['authorFirebaseId'] as String? ?? '',
-          authorName: d['author'] as String? ?? 'Anonymous',
-          title: d['title'] as String? ?? '',
-          excerpt: d['excerpt'] as String? ?? '',
-          imageUrl: d['imageUrl'] as String?,
-          publishedAt: d['publishedAt'] is Timestamp
-              ? (d['publishedAt'] as Timestamp).toDate()
-              : DateTime.now(),
-          isSubmission: isSubmission,
-          categoryLabel: d['categoryLabel'] as String? ?? '',
-          tags: ((d['tags'] as List<dynamic>?) ?? []).cast<String>(),
-          wpPost: (isSubmission) ? null : Post(
-            id: wpId,
-            authorId: 0,
-            title: d['title'] as String? ?? '',
-            content: '',
-            excerpt: d['excerpt'] as String? ?? '',
-            author: d['author'] as String? ?? '',
-            imageUrl: d['imageUrl'] as String? ?? '',
-            publishedAt: DateTime.now(),
-            categories: [],
-            tagNames: [],
-            slug: d['slug'] as String? ?? '',
-            link: d['link'] as String? ?? '',
-          ),
-        );
+        return {
+          ...d,
+          // Convert Timestamp to DateTime before passing to Isolate (Isolates can't handle Timestamp easily)
+          'publishedAt': (d['publishedAt'] as Timestamp?)?.toDate(),
+        };
       }).toList();
+
+      return await compute(_parseFeedItems, rawData);
 
     } on FirebaseException catch (e) {
       throw FirebaseServiceException(
