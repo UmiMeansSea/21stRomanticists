@@ -372,7 +372,7 @@ class FirebaseService {
           .orderBy('savedAt', descending: true)
           .get();
 
-      return snapshot.docs.map((doc) {
+      return snapshot.docs.map<Post>((doc) {
         final d = doc.data();
         return Post(
           id: d['postId'] as int,
@@ -385,8 +385,8 @@ class FirebaseService {
           publishedAt: d['publishedAt'] is Timestamp
               ? (d['publishedAt'] as Timestamp).toDate()
               : DateTime.now(),
-          categories:
-              ((d['categories'] as List<dynamic>?) ?? []).cast<int>(),
+          categories: ((d['categories'] as List<dynamic>?) ?? []).cast<int>(),
+          tagNames: ((d['tags'] as List<dynamic>?) ?? []).cast<String>(),
           slug: d['slug'] as String? ?? '',
           link: d['link'] as String? ?? '',
         );

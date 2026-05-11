@@ -13,6 +13,8 @@ import 'package:romanticists_app/providers/bookmarks_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/widgets/save_to_collection_sheet.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:romanticists_app/app_theme.dart';
 
 /// Editorial post card — mirrors the Stitch design's surface-container-low
@@ -86,7 +88,7 @@ class _FeaturedCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 20),
-                  _CommunityBadge(category: categoryLabel, date: post.publishedAt),
+                  _CommunityBadge(categoryLabel, post.publishedAt),
                   const SizedBox(height: 16),
                   Text(
                     post.cleanTitle,
@@ -192,7 +194,7 @@ class _StandardCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _CommunityBadge(category: categoryLabel, date: post.publishedAt),
+                    _CommunityBadge(categoryLabel, post.publishedAt),
                     const SizedBox(height: 8),
                     Text(
                       post.cleanTitle,
@@ -252,24 +254,46 @@ class _CardShellState extends State<_CardShell> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final shadowColor = isDark 
+        ? Colors.black.withValues(alpha: _hovered ? 0.6 : 0.4)
+        : AppColors.primary.withValues(alpha: _hovered ? 0.15 : 0.08);
+    
+    final glowColor = isDark 
+        ? AppColors.romanticPrimary.withValues(alpha: _hovered ? 0.1 : 0)
+        : Colors.white.withValues(alpha: _hovered ? 0.2 : 0);
+
     return RepaintBoundary(
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          transform: Matrix4.identity()..translate(0.0, _hovered ? -4.0 : 0.0),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(16),
+            color: Theme.of(context).cardTheme.color,
+            borderRadius: BorderRadius.circular(24),
             boxShadow: [
+              // Main Shadow
               BoxShadow(
-                color: Colors.black.withValues(alpha: _hovered ? 0.3 : 0.1),
-                blurRadius: _hovered ? 24 : 12,
-                offset: Offset(0, _hovered ? 12 : 4),
+                color: shadowColor,
+                blurRadius: _hovered ? 32 : 16,
+                offset: Offset(0, _hovered ? 16 : 8),
+                spreadRadius: _hovered ? 2 : 0,
+              ),
+              // Magnetic Glow
+              BoxShadow(
+                color: glowColor,
+                blurRadius: 40,
+                spreadRadius: _hovered ? 5 : -5,
               ),
             ],
           ),
-          child: widget.child,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: widget.child,
+          ),
         ),
       ),
     );
@@ -386,6 +410,7 @@ class _AuthorRow extends StatelessWidget {
       child: FutureBuilder<Map<String, dynamic>?>(
         future: _fetchUserInfo(),
         builder: (context, snapshot) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
           final info = snapshot.data;
           final username = isAnonymous ? 'Anonymous' : (info?['username'] as String? ?? authorName);
           final avatarUrl = info?['photoURL'] as String? ?? info?['profilePicture'] as String?;
@@ -396,17 +421,27 @@ class _AuthorRow extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.surfaceBright, width: 2),
+                  border: Border.all(
+                    color: isDark ? AppColors.romanticPrimary.withValues(alpha: 0.3) : AppColors.primary.withValues(alpha: 0.1),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: CircleAvatar(
                   radius: small ? 16 : 24,
-                  backgroundColor: AppColors.surfaceBright,
+                  backgroundColor: isDark ? AppColors.romanticSurfaceContainer : AppColors.surfaceContainerHigh,
                   backgroundImage: (!isAnonymous && avatarUrl != null) ? CachedNetworkImageProvider(avatarUrl) : null,
                   child: (isAnonymous || avatarUrl == null)
                       ? Icon(
                           isAnonymous ? Icons.person_outline : Icons.person,
                           size: small ? 18 : 28,
-                          color: AppColors.primary,
+                          color: isDark ? AppColors.romanticOnSurface : AppColors.primary,
                         )
                       : null,
                 ),
@@ -419,9 +454,10 @@ class _AuthorRow extends StatelessWidget {
                   Text(
                     isAnonymous ? 'Anonymous' : '@$username',
                     style: GoogleFonts.ebGaramond(
-                      fontSize: small ? 14 : 18,
+                      fontSize: small ? 15 : 18,
                       fontWeight: FontWeight.w600,
                       color: Theme.of(context).colorScheme.onSurface,
+                      letterSpacing: -0.2,
                     ),
                   ),
                   if (!isAnonymous)
@@ -442,10 +478,10 @@ class _AuthorRow extends StatelessWidget {
                       child: Text(
                         'SUBSCRIBE',
                         style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                          color: AppColors.primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.0,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ),
@@ -539,6 +575,7 @@ class _EngagementRow extends StatelessWidget {
         ),
       ],
     );
+  }
 }
 
 class _EngagementItem extends StatefulWidget {
@@ -605,16 +642,16 @@ class _EngagementItemState extends State<_EngagementItem> with SingleTickerProvi
             children: [
               Icon(
                 widget.icon,
-                size: widget.small ? 20 : 24,
-                color: widget.color ?? Theme.of(context).colorScheme.onSurfaceVariant,
+                size: widget.small ? 20 : 26,
+                color: widget.color ?? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
               ),
               const SizedBox(height: 4),
               Text(
                 widget.label ?? widget.count.toString(),
                 style: GoogleFonts.inter(
-                  fontSize: widget.small ? 10 : 12,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: widget.small ? 10 : 13,
+                  fontWeight: FontWeight.w700,
+                  color: widget.color ?? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -1117,7 +1154,7 @@ class _FeaturedSubmissionCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 20),
-                  _CommunityBadge(category: item.categoryLabel, date: item.publishedAt),
+                  _CommunityBadge(item.categoryLabel, item.publishedAt),
                   const SizedBox(height: 16),
                   Text(
                     item.title,
@@ -1148,7 +1185,7 @@ class _FeaturedSubmissionCard extends StatelessWidget {
                       spacing: 8,
                       runSpacing: 8,
                       children: item.tags
-                          .map((t) => _InlineTag(tag: t))
+                          .map((t) => _InlineTag(t))
                           .toList(),
                     ),
                   ],
@@ -1224,7 +1261,7 @@ class _StandardSubmissionCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _CommunityBadge(category: item.categoryLabel, date: item.publishedAt),
+                    _CommunityBadge(item.categoryLabel, item.publishedAt),
                     const SizedBox(height: 8),
                     Text(
                       item.title,
@@ -1254,9 +1291,13 @@ class _StandardSubmissionCard extends StatelessWidget {
                           isLiked: item.isLiked,
                           isReshared: item.isReshared,
                           small: true,
-                          onComment: () => context.push('/submission/${item.uniqueId}?comment=true', extra: item.submission),
-                          onLike: () => context.read<PostsProvider>().toggleLike(item),
-                          onReshare: () => context.read<PostsProvider>().toggleReshare(item),
+                          onComment: () => context.push(
+                              '/submission/${item.uniqueId}?comment=true',
+                              extra: item.submission),
+                          onLike: () =>
+                              context.read<PostsProvider>().toggleLike(item),
+                          onReshare: () =>
+                              context.read<PostsProvider>().toggleReshare(item),
                         ),
                         const SizedBox(width: 16),
                         const _ShareButton(size: 22),
@@ -1285,37 +1326,48 @@ class _StandardSubmissionCard extends StatelessWidget {
 class _CommunityBadge extends StatelessWidget {
   final String category;
   final DateTime date;
-  const _CommunityBadge({required this.category, required this.date});
+
+  _CommunityBadge(this.category, this.date);
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final formatted = DateFormat('MMMM d, yyyy').format(date);
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: AppColors.accent.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(2),
+            color: isDark
+                ? AppColors.romanticPrimary.withValues(alpha: 0.2)
+                : AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isDark
+                  ? AppColors.romanticPrimary.withValues(alpha: 0.3)
+                  : AppColors.primary.withValues(alpha: 0.2),
+              width: 0.5,
+            ),
           ),
           child: Text(
-            '✦ Community',
+            'COMMUNITY',
             style: GoogleFonts.inter(
               fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-              color: AppColors.accent,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.0,
+              color: isDark ? AppColors.romanticPrimary : AppColors.primary,
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 12),
         Text(
-          category.isNotEmpty ? '$category • $formatted' : formatted,
-          style: GoogleFonts.inter(
-            fontSize: 11,
+          category.isNotEmpty ? '$category | $formatted' : formatted,
+          style: GoogleFonts.ebGaramond(
+            fontSize: 13,
             fontWeight: FontWeight.w500,
-            letterSpacing: 0.5,
-            color: Theme.of(context).colorScheme.secondary,
+            letterSpacing: 0.2,
+            color:
+                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
             fontStyle: FontStyle.italic,
           ),
         ),
@@ -1326,16 +1378,27 @@ class _CommunityBadge extends StatelessWidget {
 
 class _InlineTag extends StatelessWidget {
   final String tag;
-  const _InlineTag({required this.tag});
+
+  _InlineTag(this.tag);
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      '#$tag',
-      style: GoogleFonts.inter(
-        fontSize: 11,
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
-        fontWeight: FontWeight.w600,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)),
+      ),
+      child: Text(
+        '#$tag',
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }

@@ -67,10 +67,25 @@ class WpApiService {
     int page = 1,
     int perPage = 10,
     int? categoryId,
+    int? tagId,
+    String? tagName,
   }) async {
     final queryParams = StringBuffer('?per_page=$perPage&page=$page&_embed=true');
     if (categoryId != null && categoryId != 0) {
       queryParams.write('&categories=$categoryId');
+    }
+    if (tagId != null) {
+      queryParams.write('&tags=$tagId');
+    }
+    if (tagName != null && tagName.isNotEmpty) {
+      final tid = await fetchTagIdByName(tagName);
+      if (tid != null) {
+        queryParams.write('&tags=$tid');
+      } else {
+        // If tag not found in WP, we might still have it in Firestore
+        // For WP, if tag doesn't exist, it will return nothing if we force a fake ID
+        queryParams.write('&tags=0'); 
+      }
     }
 
     final raw = await _get('/posts$queryParams');
@@ -132,12 +147,42 @@ class WpApiService {
         .toList();
   }
 
+  /// Fetches all tags from the site.
+  Future<List<String>> fetchTags() async {
+    try {
+      final raw = await _get('/tags?per_page=100&orderby=count&order=desc');
+      if (raw is! List) return [];
+      return raw.map((item) => (item as Map<String, dynamic>)['name'] as String).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<int?> fetchTagIdByName(String name) async {
+    try {
+      final encoded = Uri.encodeComponent(name.trim());
+      final raw = await _get('/tags?search=$encoded');
+      if (raw is List && raw.isNotEmpty) {
+        // Find exact match
+        for (var item in raw) {
+          if ((item['name'] as String).toLowerCase() == name.trim().toLowerCase()) {
+            return item['id'] as int;
+          }
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Returns the total number of pages for a given category / search.
   /// Parses `X-WP-TotalPages` header from a HEAD request.
   Future<int> fetchTotalPages({
     int perPage = 10,
     int? categoryId,
     String? search,
+    String? tagName,
   }) async {
     final queryParams = StringBuffer('?per_page=$perPage');
     if (categoryId != null && categoryId != 0) {
@@ -145,6 +190,14 @@ class WpApiService {
     }
     if (search != null && search.isNotEmpty) {
       queryParams.write('&search=${Uri.encodeComponent(search)}');
+    }
+    if (tagName != null && tagName.isNotEmpty) {
+      final tid = await fetchTagIdByName(tagName);
+      if (tid != null) {
+        queryParams.write('&tags=$tid');
+      } else {
+        return 0;
+      }
     }
 
     final uri = Uri.parse('$_baseUrl/posts$queryParams');

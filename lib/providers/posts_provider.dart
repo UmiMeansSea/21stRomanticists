@@ -42,6 +42,7 @@ class PostsProvider extends ChangeNotifier {
 
   bool _filterAnonymous = false;
   String? _selectedTag;
+  List<String> _wpTags = [];
 
   // ─── Getters ───────────────────────────────────────────────────────────────
   List<Category> get categories => List.unmodifiable(_categories);
@@ -62,31 +63,41 @@ class PostsProvider extends ChangeNotifier {
   List<String> get allTags {
     final tags = <String>{};
     
-    // Submissions tags
+    // 1. Tags fetched from WP API
+    for (var tag in _wpTags) {
+      _addTag(tags, tag);
+    }
+    
+    // 2. Local submissions tags
     for (var sub in _submissions) {
       for (var tag in sub.tags) {
         _addTag(tags, tag);
       }
     }
     
-    // WordPress post tags
+    // 3. Current loaded WP posts tags (fallback/extra)
     for (var post in _posts) {
       for (var tag in post.tagNames) {
         _addTag(tags, tag);
       }
     }
     
-    return tags.toList()..sort();
+    return tags.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
   }
 
   void _addTag(Set<String> set, String tag) {
     if (tag.trim().isEmpty) return;
-    final normalized = tag.trim().toLowerCase();
-    // Capitalize first letter for display consistency
-    final display = normalized.length > 1 
-      ? normalized[0].toUpperCase() + normalized.substring(1)
-      : normalized.toUpperCase();
-    set.add(display);
+    final normalized = tag.trim();
+    // We want to keep original casing if possible, but unify by lowercase
+    // Check if a similar tag (case-insensitive) already exists
+    final exists = set.any((t) => t.toLowerCase() == normalized.toLowerCase());
+    if (!exists) {
+      // Capitalize first letter for display consistency if it's all lowercase
+      final display = (normalized == normalized.toLowerCase() && normalized.length > 1)
+        ? normalized[0].toUpperCase() + normalized.substring(1)
+        : normalized;
+      set.add(display);
+    }
   }
 
   /// Merged, sorted feed of WP posts + community submissions.
@@ -110,7 +121,7 @@ class PostsProvider extends ChangeNotifier {
         .map((s) => s.wpId!)
         .toSet();
     
-    // 1. Map WordPress posts to FeedItems, but ONLY those that haven't been migrated yet
+    // 1. Map WordPress posts to FeedItems
     final wpItems = _posts
         .where((p) => !migratedWpIds.contains(p.id))
         .where((p) {
@@ -226,8 +237,16 @@ class PostsProvider extends ChangeNotifier {
   Future<void> _init() async {
     await Future.wait([
       _loadCategories(),
+      _loadTags(),
       _loadPosts(reset: true),
     ]);
+  }
+
+  Future<void> _loadTags() async {
+    try {
+      _wpTags = await _api.fetchTags();
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<void> _loadCategories() async {
@@ -265,10 +284,12 @@ class PostsProvider extends ChangeNotifier {
           _totalPages = await _api.fetchTotalPages(
             categoryId: categoryId == 0 ? null : categoryId,
             search: _searchQuery.isEmpty ? null : _searchQuery,
+            tagName: _selectedTag,
           );
           results = await _api.fetchPosts(
             page: _currentPage,
             categoryId: categoryId == 0 ? null : categoryId,
+            tagName: _selectedTag,
           );
         }
         _posts = reset ? results : [..._posts, ...results];
@@ -350,7 +371,8 @@ class PostsProvider extends ChangeNotifier {
       _selectedCategory = null;
       _searchQuery = '';
     }
-    notifyListeners();
+    // FRESH LOAD when tag changes to ensure we get all posts from WP
+    _loadPosts(reset: true);
   }
 
   void search(String query) {

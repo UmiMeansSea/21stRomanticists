@@ -6,38 +6,39 @@ import 'package:google_fonts/google_fonts.dart';
 class AppColors {
   AppColors._();
 
-  static const background = Color(0xFFFBF9F3);
-  static const surface = Color(0xFFFBF9F3);
-  static const surfaceContainer = Color(0xFFEFEEE8);
-  static const surfaceContainerLow = Color(0xFFF5F4EE);
-  static const surfaceContainerHigh = Color(0xFFE9E8E2);
-  static const surfaceContainerHighest = Color(0xFFE4E3DD);
-  static const onSurface = Color(0xFF1B1C19);
-  static const onSurfaceVariant = Color(0xFF4C463E);
-  static const outline = Color(0xFF7E766D);
-  static const outlineVariant = Color(0xFFCFC5BB);
-  static const primary = Color(0xFF000000);
-  static const onPrimary = Color(0xFFFFFFFF);
-  static const primaryContainer = Color(0xFF221A10);
-  static const secondary = Color(0xFF3A6189);
-  static const onSecondary = Color(0xFFFFFFFF);
+  // --- Antigravity Light Palette ---
+  static const background = Color(0xFFEFF7CF);
+  static const surface = Color(0xFFEFF7CF);
+  static const surfaceContainer = Color(0xFFBAD9B5);
+  static const surfaceContainerLow = Color(0xFFE5EFD3); // Derived slightly lighter for depth
+  static const surfaceContainerHigh = Color(0xFFD4E5C4); // Derived slightly darker
+  static const surfaceContainerHighest = Color(0xFFC4D6B5);
+  static const onSurface = Color(0xFFABA361);
+  static const onSurfaceVariant = Color(0xFF7E766D);
+  static const outline = Color(0xFFABA361);
+  static const outlineVariant = Color(0xFFBAD9B5);
+  static const primary = Color(0xFF732C2C);
+  static const onPrimary = Color(0xFFEFF7CF);
+  static const primaryContainer = Color(0xFF420C14);
+  static const secondary = Color(0xFF420C14);
+  static const onSecondary = Color(0xFFEFF7CF);
   static const error = Color(0xFFBA1A1A);
   static const errorContainer = Color(0xFFFFDAD6);
 
-  // Forest green accent from brief
-  static const accent = Color(0xFF4A7C59);
+  // --- Antigravity Dark Palette ---
+  static const romanticSurface = Color(0xFF420C14);
+  static const romanticSurfaceContainer = Color(0xFF732C2C);
+  static const romanticSurfaceBright = Color(0xFF8B3A3A);
+  static const romanticOnSurface = Color(0xFFEFF7CF);
+  static const romanticOnSurfaceVariant = Color(0xFFBAD9B5);
+  static const romanticPrimary = Color(0xFFBAD9B5);
+  static const romanticOnPrimary = Color(0xFF420C14);
+  static const romanticBackground = Color(0xFF420C14);
+  static const romanticSurfaceContainerLow = Color(0xFF5A161E);
 
-  // Modern Romanticist (Dark Palette)
-  static const romanticSurface = Color(0xFF1A1816);
-  static const romanticSurfaceContainer = Color(0xFF252320);
-  static const romanticSurfaceBright = Color(0xFF33302C);
-  static const romanticOnSurface = Color(0xFFFBF9F3);
-  static const romanticOnSurfaceVariant = Color(0xFFDBDAD4);
-  static const romanticPrimary = Color(0xFFC1A68D);
-  static const romanticOnPrimary = Color(0xFF1A1816);
-
-  // Alias for backward compatibility during transition
-  static const surfaceBright = Color(0xFF33302C);
+  // Backward compatibility
+  static const surfaceBright = Color(0xFF8B3A3A);
+  static const accent = Color(0xFFBAD9B5);
 }
 
 class AppTheme {
@@ -51,6 +52,8 @@ class AppTheme {
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
         onPrimary: AppColors.onPrimary,
+        primaryContainer: AppColors.primaryContainer,
+        onPrimaryContainer: AppColors.onPrimary,
         secondary: AppColors.secondary,
         onSecondary: AppColors.onSecondary,
         surface: AppColors.surface,
@@ -67,57 +70,73 @@ class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: true,
         titleTextStyle: GoogleFonts.ebGaramond(
-          fontSize: 22,
-          fontWeight: FontWeight.w500,
-          color: AppColors.onSurface,
-          letterSpacing: -0.3,
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+          color: AppColors.primary,
+          letterSpacing: -0.5,
         ),
-        iconTheme: const IconThemeData(color: AppColors.onSurface),
+        iconTheme: const IconThemeData(color: AppColors.primary),
       ),
       textTheme: _buildTextTheme(isDark: false),
-      cardTheme: CardThemeData(
-        color: AppColors.surfaceContainerLow,
+      drawerTheme: DrawerThemeData(
+        backgroundColor: AppColors.background,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: AppColors.onSurface.withValues(alpha: 0.1),
-            width: 0.5,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(24),
+            bottomRight: Radius.circular(24),
           ),
         ),
-        margin: EdgeInsets.zero,
+        surfaceTintColor: AppColors.primary,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.surfaceContainerLow,
+        indicatorColor: AppColors.primary.withValues(alpha: 0.1),
+        labelTextStyle: WidgetStateProperty.all(
+          GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.onSurface),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: AppColors.background,
+        elevation: 0,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.5), width: 0.5),
+        ),
+        surfaceTintColor: Colors.transparent,
       ),
       dividerTheme: DividerThemeData(
-        color: AppColors.onSurface.withValues(alpha: 0.1),
+        color: AppColors.outline.withValues(alpha: 0.1),
         space: 1,
-        thickness: 0.5,
+        thickness: 1,
       ),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: AppColors.onSurface.withValues(alpha: 0.2)),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: AppColors.outline.withValues(alpha: 0.3)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: AppColors.onSurface.withValues(alpha: 0.2)),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: AppColors.outline.withValues(alpha: 0.3)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
-        fillColor: AppColors.surfaceContainer,
+        fillColor: AppColors.surfaceContainerLow,
         filled: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        hintStyle: GoogleFonts.literata(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        hintStyle: GoogleFonts.inter(
           fontSize: 16,
-          color: AppColors.onSurfaceVariant,
+          color: AppColors.onSurface.withValues(alpha: 0.5),
         ),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: AppColors.background,
         selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.onSurfaceVariant,
-        selectedLabelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+        unselectedItemColor: AppColors.onSurface.withValues(alpha: 0.6),
+        selectedLabelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
         unselectedLabelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
         showSelectedLabels: true,
         showUnselectedLabels: true,
@@ -128,34 +147,39 @@ class AppTheme {
         backgroundColor: AppColors.surfaceContainer,
         selectedColor: AppColors.primary,
         labelStyle: GoogleFonts.inter(
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: FontWeight.w500,
           color: AppColors.onSurface,
         ),
         secondaryLabelStyle: GoogleFonts.inter(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
           color: AppColors.onPrimary,
         ),
-        side: BorderSide(color: AppColors.onSurface.withValues(alpha: 0.1)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        side: BorderSide(color: AppColors.outline.withValues(alpha: 0.3)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.onPrimary,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-          textStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          elevation: 2,
+          shadowColor: AppColors.primary.withValues(alpha: 0.3),
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          textStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: AppColors.surfaceContainer,
-        elevation: 8,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: GoogleFonts.inter(fontSize: 15, color: AppColors.onSurface),
+        color: AppColors.surfaceContainerHigh,
+        elevation: 12,
+        shadowColor: Colors.black.withValues(alpha: 0.2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppColors.outline.withValues(alpha: 0.1)),
+        ),
+        textStyle: GoogleFonts.inter(fontSize: 15, color: AppColors.primary, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -167,15 +191,17 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.romanticSurface,
       colorScheme: const ColorScheme.dark(
         primary: AppColors.romanticPrimary,
-        onPrimary: AppColors.romanticSurface,
-        secondary: AppColors.romanticPrimary,
+        onPrimary: AppColors.romanticOnPrimary,
+        primaryContainer: AppColors.romanticSurfaceContainer,
+        onPrimaryContainer: AppColors.romanticOnSurface,
+        secondary: AppColors.romanticOnSurfaceVariant,
         onSecondary: AppColors.romanticSurface,
         surface: AppColors.romanticSurface,
         onSurface: AppColors.romanticOnSurface,
         surfaceContainer: AppColors.romanticSurfaceContainer,
         onSurfaceVariant: AppColors.romanticOnSurfaceVariant,
         error: AppColors.error,
-        outline: AppColors.outline,
+        outline: AppColors.romanticOnSurfaceVariant,
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.romanticSurface,
@@ -184,57 +210,73 @@ class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: true,
         titleTextStyle: GoogleFonts.ebGaramond(
-          fontSize: 22,
-          fontWeight: FontWeight.w500,
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
           color: AppColors.romanticOnSurface,
-          letterSpacing: -0.3,
+          letterSpacing: -0.5,
         ),
         iconTheme: const IconThemeData(color: AppColors.romanticOnSurface),
       ),
       textTheme: _buildTextTheme(isDark: true),
+      drawerTheme: DrawerThemeData(
+        backgroundColor: AppColors.romanticBackground,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(24),
+            bottomRight: Radius.circular(24),
+          ),
+        ),
+        surfaceTintColor: AppColors.romanticPrimary,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.romanticSurfaceContainerLow,
+        indicatorColor: AppColors.romanticPrimary.withValues(alpha: 0.15),
+        labelTextStyle: WidgetStateProperty.all(
+          GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.romanticOnSurface),
+        ),
+      ),
       cardTheme: CardThemeData(
         color: AppColors.romanticSurfaceContainer,
         elevation: 0,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: AppColors.romanticOnSurface.withValues(alpha: 0.1),
-            width: 0.5,
-          ),
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: AppColors.romanticPrimary.withValues(alpha: 0.1), width: 1.0),
         ),
-        margin: EdgeInsets.zero,
+        surfaceTintColor: Colors.transparent,
       ),
       dividerTheme: DividerThemeData(
         color: AppColors.romanticOnSurface.withValues(alpha: 0.1),
         space: 1,
-        thickness: 0.5,
+        thickness: 1,
       ),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: AppColors.romanticOnSurface.withValues(alpha: 0.2)),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: AppColors.romanticOnSurface.withValues(alpha: 0.1)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: AppColors.romanticOnSurface.withValues(alpha: 0.2)),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: AppColors.romanticOnSurface.withValues(alpha: 0.1)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.romanticPrimary, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.romanticPrimary, width: 2),
         ),
-        fillColor: AppColors.romanticSurfaceContainer,
+        fillColor: AppColors.romanticSurfaceContainer.withValues(alpha: 0.5),
         filled: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        hintStyle: GoogleFonts.literata(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        hintStyle: GoogleFonts.inter(
           fontSize: 16,
-          color: AppColors.romanticOnSurfaceVariant,
+          color: AppColors.romanticOnSurface.withValues(alpha: 0.4),
         ),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: AppColors.romanticSurface,
         selectedItemColor: AppColors.romanticPrimary,
-        unselectedItemColor: AppColors.romanticOnSurfaceVariant,
-        selectedLabelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+        unselectedItemColor: AppColors.romanticOnSurface.withValues(alpha: 0.5),
+        selectedLabelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
         unselectedLabelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
         showSelectedLabels: true,
         showUnselectedLabels: true,
@@ -245,34 +287,39 @@ class AppTheme {
         backgroundColor: AppColors.romanticSurfaceContainer,
         selectedColor: AppColors.romanticPrimary,
         labelStyle: GoogleFonts.inter(
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: FontWeight.w500,
           color: AppColors.romanticOnSurface,
         ),
         secondaryLabelStyle: GoogleFonts.inter(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
           color: AppColors.romanticSurface,
         ),
         side: BorderSide(color: AppColors.romanticOnSurface.withValues(alpha: 0.1)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.romanticPrimary,
           foregroundColor: AppColors.romanticSurface,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-          textStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          elevation: 4,
+          shadowColor: AppColors.romanticPrimary.withValues(alpha: 0.2),
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          textStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
         color: AppColors.romanticSurfaceContainer,
-        elevation: 8,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: GoogleFonts.inter(fontSize: 15, color: AppColors.romanticOnSurface),
+        elevation: 12,
+        shadowColor: Colors.black.withValues(alpha: 0.5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppColors.romanticOnSurface.withValues(alpha: 0.1)),
+        ),
+        textStyle: GoogleFonts.inter(fontSize: 15, color: AppColors.romanticOnSurface, fontWeight: FontWeight.w500),
       ),
     );
   }

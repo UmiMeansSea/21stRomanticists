@@ -202,14 +202,15 @@ class _SubmitScreenState extends State<SubmitScreen> {
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         title: Text('THE ROMANTICISTS',
             style: GoogleFonts.ebGaramond(
               fontSize: 15,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
+              color: Theme.of(context).colorScheme.primary,
             )),
         centerTitle: true,
         elevation: 0,
@@ -358,20 +359,14 @@ class _SubmitScreenState extends State<SubmitScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _submitting ? null : _publish,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.onPrimary,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-                      ),
                       child: _submitting
                           ? const SizedBox(
                               width: 22, height: 22,
                               child: CircularProgressIndicator(
-                                  color: AppColors.onPrimary, strokeWidth: 2))
+                                  strokeWidth: 2))
                           : Text('Publish Now',
                               style: GoogleFonts.inter(
-                                  fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+                                  fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
                     ),
                   ),
                 ],
@@ -384,14 +379,14 @@ class _SubmitScreenState extends State<SubmitScreen> {
   // ─── Input Decorator ───────────────────────────────────────────────────────
   InputDecoration _dec(String label) => InputDecoration(
         labelText: label,
-        labelStyle: GoogleFonts.literata(color: AppColors.onSurfaceVariant),
+        labelStyle: GoogleFonts.literata(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
         filled: true,
-        fillColor: AppColors.surfaceContainerLow,
+        fillColor: Theme.of(context).colorScheme.surfaceContainerLow,
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+            borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: AppColors.primary, width: 1.5)),
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5)),
       );
 
   // ─── Cover image picker ────────────────────────────────────────────────────
