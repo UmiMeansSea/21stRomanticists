@@ -6,12 +6,11 @@ import 'package:provider/provider.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
-import 'package:romanticists_app/services/firebase_service.dart';
+import 'package:romanticists_app/providers/activity_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-/// A unified notifications + subscribed-feed screen.
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -27,6 +26,14 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    
+    // Initialize provider data as soon as we have a user
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final uid = context.read<AuthProvider>().user?.uid;
+      if (uid != null) {
+        context.read<ActivityProvider>().init(uid);
+      }
+    });
   }
 
   @override
@@ -73,7 +80,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   }
 }
 
-// ─── Tab 1: New posts from subscribed authors ─────────────────────────────────
+// ─── Tab 1: Subscribed Feed ──────────────────────────────────────────────────
 
 class _SubscribedFeed extends StatefulWidget {
   const _SubscribedFeed();
@@ -83,59 +90,37 @@ class _SubscribedFeed extends StatefulWidget {
 }
 
 class _SubscribedFeedState extends State<_SubscribedFeed> {
-  List<Submission>? _posts;
-  bool _loading = true;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _scrollController.addListener(_onScroll);
   }
 
-  Future<void> _load() async {
+  void _onScroll() {
+    final activity = context.read<ActivityProvider>();
     final uid = context.read<AuthProvider>().user?.uid;
-    if (uid == null) {
-      setState(() => _loading = false);
-      return;
-    }
-
-    // Only show full-screen spinner if we have no data yet
-    if (_posts == null) setState(() => _loading = true);
-
-    try {
-      final followingIds = await FirebaseService.instance.getFollowingIds(uid);
-      if (followingIds.isEmpty) {
-        setState(() { _posts = []; _loading = false; });
-        return;
-      }
-
-      // Fetch latest submissions (these now use SWR at the service level)
-      final List<Submission> allPosts = [];
-      for (final authorId in followingIds.take(20)) {
-        final subs = await FirebaseService.instance.getUserSubmissions(authorId);
-        allPosts.addAll(subs.take(5));
-      }
-
-      // Sort newest first globally
-      allPosts.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
-
-      if (mounted) setState(() { _posts = allPosts; _loading = false; });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    if (uid != null &&
+        _scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      activity.loadMoreSubscribed(uid);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading && (_posts == null || _posts!.isEmpty)) {
-      return const _ShimmerList(); // FIX 3: Shimmer State
+    final activity = context.watch<ActivityProvider>();
+    final auth = context.watch<AuthProvider>();
+
+    // Phase 2: Shimmer Skeletons for empty cache + loading
+    if (activity.isLoadingSubscribed && activity.subscribedPosts.isEmpty) {
+      return const _ShimmerList();
     }
 
-    final uid = context.read<AuthProvider>().user?.uid;
-    if (uid == null) return _SignInPrompt();
+    if (auth.user == null) return _SignInPrompt();
 
-    if (_posts == null || _posts!.isEmpty) {
-      return _EmptyTab(
+    if (activity.subscribedPosts.isEmpty && !activity.isLoadingSubscribed) {
+      return const _EmptyTab(
         icon: Icons.newspaper_outlined,
         title: 'Nothing new yet',
         subtitle: 'Subscribe to authors on their profiles\nto see their latest works here.',
@@ -143,16 +128,89 @@ class _SubscribedFeedState extends State<_SubscribedFeed> {
     }
 
     return RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: () => activity.refreshSubscribed(auth.user!.uid),
       child: ListView.separated(
+        controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        itemCount: _posts!.length,
+        itemCount: activity.subscribedPosts.length + (activity.hasMoreSubscribed ? 1 : 0),
         separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
-        itemBuilder: (context, i) => _SubscribedPostTile(sub: _posts![i]),
+        itemBuilder: (context, i) {
+          if (i == activity.subscribedPosts.length) {
+            return const _PaginationLoader();
+          }
+          return _SubscribedPostTile(sub: activity.subscribedPosts[i]);
+        },
       ),
     );
   }
 }
+
+// ─── Tab 2: Notifications Feed ────────────────────────────────────────────────
+
+class _NotificationsFeed extends StatefulWidget {
+  const _NotificationsFeed();
+
+  @override
+  State<_NotificationsFeed> createState() => _NotificationsFeedState();
+}
+
+class _NotificationsFeedState extends State<_NotificationsFeed> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final activity = context.read<ActivityProvider>();
+    final uid = context.read<AuthProvider>().user?.uid;
+    if (uid != null &&
+        _scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      activity.loadMoreNotifications(uid);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activity = context.watch<ActivityProvider>();
+    final auth = context.watch<AuthProvider>();
+
+    // Phase 2: Shimmer Skeletons
+    if (activity.isLoadingNotifications && activity.notifications.isEmpty) {
+      return const _ShimmerList();
+    }
+
+    if (auth.user == null) return _SignInPrompt();
+
+    if (activity.notifications.isEmpty && !activity.isLoadingNotifications) {
+      return const _EmptyTab(
+        icon: Icons.notifications_none_outlined,
+        title: 'All quiet here',
+        subtitle: 'When readers subscribe, like, or\ncomment on your work, it will appear here.',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => activity.refreshNotifications(auth.user!.uid),
+      child: ListView.separated(
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        itemCount: activity.notifications.length + (activity.hasMoreNotifications ? 1 : 0),
+        separatorBuilder: (_, __) => const Divider(height: 1, indent: 72, endIndent: 16),
+        itemBuilder: (context, i) {
+          if (i == activity.notifications.length) {
+            return const _PaginationLoader();
+          }
+          return _NotificationTile(data: activity.notifications[i]);
+        },
+      ),
+    );
+  }
+}
+
+// ─── Widgets ─────────────────────────────────────────────────────────────────
 
 class _SubscribedPostTile extends StatelessWidget {
   final Submission sub;
@@ -166,11 +224,14 @@ class _SubscribedPostTile extends StatelessWidget {
       leading: CircleAvatar(
         radius: 22,
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-        child: Text(
-          (sub.authorName ?? '?')[0].toUpperCase(),
-          style: GoogleFonts.ebGaramond(
-              fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
-        ),
+        backgroundImage: sub.imageUrl != null ? CachedNetworkImageProvider(sub.imageUrl!) : null,
+        child: sub.imageUrl == null
+            ? Text(
+                (sub.authorName ?? '?')[0].toUpperCase(),
+                style: GoogleFonts.ebGaramond(
+                    fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
+              )
+            : null,
       ),
       title: Text(
         sub.title,
@@ -183,171 +244,7 @@ class _SubscribedPostTile extends StatelessWidget {
         style: GoogleFonts.inter(fontSize: 12, color: Theme.of(context).colorScheme.outline),
       ),
       trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
-      onTap: () {
-        final uid = sub.userId;
-        if (uid != null && uid.isNotEmpty) {
-          context.push('/user/$uid?name=${sub.authorName ?? ''}');
-        }
-      },
-    );
-  }
-}
-
-// ─── Tab 2: Activity notifications ──────────────────────────────────────────
-
-class _NotificationsFeed extends StatefulWidget {
-  const _NotificationsFeed();
-
-  @override
-  State<_NotificationsFeed> createState() => _NotificationsFeedState();
-}
-
-class _NotificationsFeedState extends State<_NotificationsFeed> {
-  final ScrollController _scrollController = ScrollController();
-  List<Map<String, dynamic>>? _notifications;
-  bool _loading = false;
-  bool _loadingMore = false;
-  bool _hasMore = true;
-  DocumentSnapshot? _lastDoc;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadInitial(); // FIX 1: Instant Rendering (SWR)
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200 &&
-        !_loadingMore &&
-        _hasMore) {
-      _loadMore(); // FIX 2: Pagination
-    }
-  }
-
-  Future<void> _loadInitial() async {
-    final uid = context.read<AuthProvider>().user?.uid;
-    if (uid == null) return;
-
-    // 1. Instant Cache Render
-    final cached = await FirebaseService.instance.getCachedNotifications(uid);
-    if (mounted && cached.isNotEmpty) {
-      setState(() {
-        _notifications = cached;
-        _loading = false;
-      });
-    } else {
-      if (mounted) setState(() => _loading = true);
-    }
-
-    // 2. Silent Background Fetch
-    try {
-      final fresh = await FirebaseService.instance.getNotifications(uid, limit: 20);
-      
-      // Need a snapshot for pagination startAfter
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('notifications')
-          .orderBy('createdAt', descending: true)
-          .limit(20)
-          .get();
-
-      if (mounted) {
-        setState(() {
-          _notifications = fresh;
-          _loading = false;
-          _lastDoc = snap.docs.isNotEmpty ? snap.docs.last : null;
-          _hasMore = fresh.length == 20;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _loadMore() async {
-    final uid = context.read<AuthProvider>().user?.uid;
-    if (uid == null || _lastDoc == null) return;
-
-    setState(() => _loadingMore = true);
-
-    try {
-      final more = await FirebaseService.instance.getNotifications(
-        uid, 
-        limit: 20, 
-        lastDoc: _lastDoc,
-      );
-
-      // Get the new lastDoc for next page
-      final query = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('notifications')
-          .orderBy('createdAt', descending: true)
-          .startAfterDocument(_lastDoc!)
-          .limit(20)
-          .get();
-
-      if (mounted) {
-        setState(() {
-          _notifications!.addAll(more);
-          _loadingMore = false;
-          _lastDoc = query.docs.isNotEmpty ? query.docs.last : null;
-          _hasMore = more.length == 20;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loadingMore = false);
-    }
-  }
-
-  Future<void> _onRefresh() async {
-    _lastDoc = null;
-    _hasMore = true;
-    await _loadInitial();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading && (_notifications == null || _notifications!.isEmpty)) {
-      return const _ShimmerList(); // FIX 3: Shimmer
-    }
-
-    final uid = context.read<AuthProvider>().user?.uid;
-    if (uid == null) return _SignInPrompt();
-
-    if (_notifications == null || _notifications!.isEmpty) {
-      return _EmptyTab(
-        icon: Icons.notifications_none_outlined,
-        title: 'All quiet here',
-        subtitle: 'When readers subscribe, like, or\ncomment on your work, it will appear here.',
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _onRefresh,
-      child: ListView.separated(
-        controller: _scrollController,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        itemCount: _notifications!.length + (_hasMore ? 1 : 0),
-        separatorBuilder: (_, __) => const Divider(height: 1, indent: 72, endIndent: 16),
-        itemBuilder: (context, i) {
-          if (i == _notifications!.length) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            );
-          }
-          return _NotificationTile(data: _notifications![i]);
-        },
-      ),
+      onTap: () => context.push('/submission/${sub.id}', extra: sub),
     );
   }
 }
@@ -355,6 +252,82 @@ class _NotificationsFeedState extends State<_NotificationsFeed> {
 class _NotificationTile extends StatelessWidget {
   final Map<String, dynamic> data;
   const _NotificationTile({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final type = data['type'] as String? ?? 'other';
+    final actorName = data['actorName'] as String? ?? 'Someone';
+    final actorImageUrl = data['actorImageUrl'] as String?;
+    final title = data['postTitle'] as String?;
+    final date = _parseDate(data['createdAt']);
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: _NotificationAvatar(url: actorImageUrl, type: type),
+      title: RichText(
+        text: TextSpan(
+          style: GoogleFonts.literata(fontSize: 14, color: Theme.of(context).colorScheme.onSurface),
+          children: [
+            TextSpan(text: actorName, style: const FontWeight.bold),
+            TextSpan(text: _message(type)),
+          ],
+        ),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title != null)
+            Text('"$title"',
+                style: GoogleFonts.ebGaramond(
+                    fontSize: 13, fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          if (date != null)
+            Text(DateFormat('MMM d, h:mm a').format(date),
+                style: GoogleFonts.inter(fontSize: 11, color: Theme.of(context).colorScheme.outline)),
+        ],
+      ),
+      onTap: () {
+        final postId = data['postId'] as String?;
+        if (postId != null) context.push('/submission/$postId');
+      },
+    );
+  }
+
+  String _message(String type) {
+    switch (type) {
+      case 'like': return ' liked your work';
+      case 'subscribe': return ' subscribed to you';
+      case 'new_post': return ' published a new work';
+      default: return ' interacted with your profile';
+    }
+  }
+
+  DateTime? _parseDate(dynamic val) {
+    if (val is Timestamp) return val.toDate();
+    if (val is String) return DateTime.tryParse(val);
+    return null;
+  }
+}
+
+class _NotificationAvatar extends StatelessWidget {
+  final String? url;
+  final String type;
+  const _NotificationAvatar({this.url, required this.type});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44, height: 44,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      ),
+      child: url != null 
+        ? ClipOval(child: CachedNetworkImage(imageUrl: url!, fit: BoxFit.cover, memCacheWidth: 100))
+        : Icon(_icon(type), size: 20, color: Theme.of(context).colorScheme.primary),
+    );
+  }
 
   IconData _icon(String type) {
     switch (type) {
@@ -364,96 +337,53 @@ class _NotificationTile extends StatelessWidget {
       default: return Icons.notifications;
     }
   }
+}
 
-  Color _iconColor(BuildContext context, String type) {
-    switch (type) {
-      case 'like': return const Color(0xFFE05252);
-      case 'subscribe': return Theme.of(context).colorScheme.secondary;
-      case 'new_post': return Theme.of(context).colorScheme.primary;
-      default: return Theme.of(context).colorScheme.outline;
-    }
-  }
-
-  String _message(String type, String actorName) {
-    switch (type) {
-      case 'like': return '$actorName liked your work';
-      case 'subscribe': return '$actorName subscribed to you';
-      case 'new_post': return '$actorName published a new work';
-      default: return '$actorName interacted with your profile';
-    }
-  }
+class _ShimmerList extends StatelessWidget {
+  const _ShimmerList();
 
   @override
   Widget build(BuildContext context) {
-    final type = data['type'] as String? ?? 'other';
-    final actorName = data['actorName'] as String? ?? 'Someone';
-    final actorImageUrl = data['actorImageUrl'] as String?; // FIX 4: Avatar Support
-    final title = data['postTitle'] as String?;
-    final ts = data['createdAt'];
-    DateTime? date;
-    if (ts is Timestamp) {
-      date = ts.toDate();
-    } else if (ts is String) {
-      date = DateTime.tryParse(ts);
-    }
-
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: actorImageUrl != null
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(100),
-              child: CachedNetworkImage(
-                imageUrl: actorImageUrl,
-                width: 44,
-                height: 44,
-                fit: BoxFit.cover,
-                // FIX 4: Background Image Decoding (Reduced memory footprint)
-                memCacheWidth: 150,
-                placeholder: (context, url) => Container(
-                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                  child: Icon(_icon(type), color: _iconColor(context, type), size: 22),
+    return Shimmer.fromColors(
+      baseColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+      highlightColor: Theme.of(context).colorScheme.surface,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        itemCount: 8,
+        itemBuilder: (_, __) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              const CircleAvatar(radius: 22, backgroundColor: Colors.white),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(height: 14, width: 150, color: Colors.white),
+                    const SizedBox(height: 8),
+                    Container(height: 10, width: 220, color: Colors.white),
+                  ],
                 ),
               ),
-            )
-          : Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: _iconColor(context, type).withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(_icon(type), color: _iconColor(context, type), size: 22),
-            ),
-      title: Text(
-        _message(type, actorName),
-        style: GoogleFonts.literata(fontSize: 14, color: Theme.of(context).colorScheme.onSurface),
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (title != null)
-            Text(
-              '"$title"',
-              style: GoogleFonts.ebGaramond(
-                  fontSize: 13, fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.onSurfaceVariant),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          if (date != null)
-            Text(
-              DateFormat('MMM d, h:mm a').format(date),
-              style: GoogleFonts.inter(fontSize: 11, color: Theme.of(context).colorScheme.outline),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+class _PaginationLoader extends StatelessWidget {
+  const _PaginationLoader();
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 32),
+      child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+    );
+  }
+}
 
 class _EmptyTab extends StatelessWidget {
   final IconData icon;
@@ -464,22 +394,15 @@ class _EmptyTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56, color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.4)),
-            const SizedBox(height: 20),
-            Text(title, style: GoogleFonts.ebGaramond(fontSize: 22, color: Theme.of(context).colorScheme.onSurface)),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.literata(fontSize: 14, color: Theme.of(context).colorScheme.outline, fontStyle: FontStyle.italic, height: 1.5),
-            ),
-          ],
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 56, color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+          const SizedBox(height: 20),
+          Text(title, style: GoogleFonts.ebGaramond(fontSize: 22)),
+          const SizedBox(height: 8),
+          Text(subtitle, textAlign: TextAlign.center, style: GoogleFonts.literata(fontSize: 14, color: Theme.of(context).colorScheme.outline, fontStyle: FontStyle.italic)),
+        ],
       ),
     );
   }
@@ -492,60 +415,12 @@ class _SignInPrompt extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.lock_outline, size: 48, color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.4)),
+          Icon(Icons.lock_outline, size: 48, color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
           const SizedBox(height: 16),
-          Text('Sign in to see your activity',
-              style: GoogleFonts.ebGaramond(fontSize: 20)),
+          Text('Sign in to see your activity', style: GoogleFonts.ebGaramond(fontSize: 20)),
           const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () => context.push('/login'),
-            child: const Text('Sign In'),
-          ),
+          ElevatedButton(onPressed: () => context.push('/login'), child: const Text('Sign In')),
         ],
-      ),
-    );
-  }
-}
-
-// ─── FIX 3: Shimmer Skeleton Loader ──────────────────────────────────────────
-
-class _ShimmerList extends StatelessWidget {
-  const _ShimmerList();
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).brightness == Brightness.dark
-        ? Colors.grey[800]!
-        : Colors.grey[300]!;
-    final highlight = Theme.of(context).brightness == Brightness.dark
-        ? Colors.grey[700]!
-        : Colors.grey[100]!;
-
-    return Shimmer.fromColors(
-      baseColor: color,
-      highlightColor: highlight,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        itemCount: 8,
-        itemBuilder: (context, index) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              const CircleAvatar(radius: 22, backgroundColor: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(height: 12, width: 140, color: Colors.white),
-                    const SizedBox(height: 6),
-                    Container(height: 10, width: 220, color: Colors.white),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

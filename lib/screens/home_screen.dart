@@ -589,7 +589,8 @@ class _SearchField extends StatelessWidget {
     return TextField(
       controller: controller,
       autofocus: true,
-      onChanged: onChanged,
+      readOnly: true,
+      onTap: () => context.push('/search'),
       style: GoogleFonts.literata(fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
       decoration: InputDecoration(
         hintText: 'Search poems, prose…',

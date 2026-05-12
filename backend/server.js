@@ -6,9 +6,13 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 
 const wpRoutes = require('./routes/wpRoutes');
+const searchService = require('./searchService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Initialize Search Engine
+searchService.initialize();
 
 // Security
 app.use(helmet());
@@ -31,6 +35,14 @@ app.use(express.json());
 
 // Routes
 app.use('/api/wp', wpRoutes);
+
+app.get('/api/search', (req, res) => {
+  const query = req.query.q;
+  if (!query) return res.status(400).json({ error: 'Query parameter "q" is required' });
+  
+  const results = searchService.search(query);
+  res.json(results);
+});
 
 app.get('/health', (req, res) => res.status(200).send('OK'));
 

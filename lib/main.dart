@@ -12,6 +12,8 @@ import 'package:romanticists_app/providers/theme_provider.dart';
 import 'package:romanticists_app/providers/collections_provider.dart';
 import 'package:romanticists_app/providers/upload_provider.dart';
 import 'package:romanticists_app/providers/likes_provider.dart';
+import 'package:romanticists_app/providers/search_provider.dart';
+import 'package:romanticists_app/providers/activity_provider.dart';
 import 'package:romanticists_app/screens/bookmarks_screen.dart';
 import 'package:romanticists_app/screens/home_screen.dart';
 import 'package:romanticists_app/screens/notifications_screen.dart';
@@ -23,6 +25,7 @@ import 'package:romanticists_app/screens/submit_screen.dart';
 import 'package:romanticists_app/screens/profile_screen.dart';
 import 'package:romanticists_app/screens/public_profile_screen.dart';
 import 'package:romanticists_app/screens/edit_profile_screen.dart';
+import 'package:romanticists_app/screens/search_screen.dart';
 import 'package:romanticists_app/screens/collection_detail_screen.dart';
 import 'package:romanticists_app/screens/submission_detail_screen.dart';
 import 'package:romanticists_app/models/post.dart';
@@ -155,6 +158,8 @@ class RomanticistsApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => CollectionsProvider()),
         ChangeNotifierProvider(create: (_) => UploadProvider()),
+        ChangeNotifierProvider(create: (_) => SearchProvider()),
+        ChangeNotifierProvider(create: (_) => ActivityProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -355,6 +360,14 @@ final GoRouter _router = GoRouter(
         context: context,
         state: state,
         child: const LoginScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/search',
+      pageBuilder: (context, state) => _slideFadePage(
+        context: context,
+        state: state,
+        child: const SearchScreen(),
       ),
     ),
   ],
