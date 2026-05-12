@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
+import 'package:romanticists_app/providers/upload_provider.dart';
 
 /// The root shell widget that owns the bottom navigation bar.
 /// go_router's ShellRoute renders child screens inside this.
@@ -43,7 +44,13 @@ class AppShell extends StatelessWidget {
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
-        body: child,
+        body: Stack(
+          children: [
+            child,
+            // ── Background Upload Overlay ───────────────────────────────────
+            const _UploadOverlay(),
+          ],
+        ),
         bottomNavigationBar: Container(
           decoration: const BoxDecoration(
             color: AppColors.surfaceContainerLow,
@@ -137,6 +144,87 @@ class _NavItem extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UploadOverlay extends StatelessWidget {
+  const _UploadOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    final upload = context.watch<UploadProvider>();
+    if (upload.status == UploadStatus.idle) return const SizedBox.shrink();
+
+    final isUploading = upload.status == UploadStatus.uploading;
+    final isSuccess = upload.status == UploadStatus.success;
+    final isError = upload.status == UploadStatus.error;
+
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 12,
+      left: 20,
+      right: 20,
+      child: Material(
+        color: Colors.transparent,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isError ? AppColors.errorContainer : Colors.black,
+            borderRadius: BorderRadius.circular(100),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isUploading)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              else if (isSuccess)
+                const Icon(Icons.check_circle, color: Colors.green, size: 20)
+              else if (isError)
+                const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  isUploading
+                      ? 'Publishing your work...'
+                      : isSuccess
+                          ? 'Work published successfully'
+                          : upload.errorMessage ?? 'Upload failed',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: isError ? AppColors.onErrorContainer : Colors.white,
+                  ),
+                ),
+              ),
+              if (!isUploading)
+                GestureDetector(
+                  onTap: () => context.read<UploadProvider>().reset(),
+                  child: Icon(
+                    Icons.close,
+                    size: 18,
+                    color: isError ? AppColors.onErrorContainer : Colors.white70,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

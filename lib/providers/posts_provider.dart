@@ -434,6 +434,7 @@ class PostsProvider extends ChangeNotifier {
     }
     
     _selectedCategory = category;
+    notifyListeners(); // [INSTANT] Show existing local items matching this category
     _loadPosts(reset: true);
   }
 
@@ -455,6 +456,7 @@ class PostsProvider extends ChangeNotifier {
       _selectedCategory = null;
       _searchQuery = '';
     }
+    notifyListeners(); // [INSTANT] Show existing local items matching this tag
     // FRESH LOAD when tag changes to ensure we get all posts from WP
     _loadPosts(reset: true);
   }

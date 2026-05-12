@@ -57,13 +57,34 @@ class _LoginScreenState extends State<LoginScreen>
     } else {
       ok = await auth.signInWithEmail(_emailCtrl.text, _passwordCtrl.text);
     }
-    if (ok && mounted) context.go('/profile');
+    
+    if (mounted) {
+      if (ok) {
+        // Success: Navigate to HomeScreen/AppShell
+        context.go('/');
+      } else {
+        // Failure: Show SnackBar with error message
+        _showSnack(auth.errorMessage ?? 'Authentication failed', isError: true);
+      }
+    }
   }
 
   Future<void> _google() async {
     final auth = context.read<AuthProvider>();
     final ok = await auth.signInWithGoogle();
-    if (ok && mounted) context.go('/profile');
+    if (mounted) {
+      if (ok) {
+        // Success: Navigate to HomeScreen/AppShell
+        context.go('/');
+      } else {
+        // Failure: Show SnackBar with error message
+        // (Note: we don't show snackbar if ok is false but errorMessage is null, 
+        // which happens if the user cancels the Google picker)
+        if (auth.errorMessage != null) {
+          _showSnack(auth.errorMessage!, isError: true);
+        }
+      }
+    }
   }
 
   Future<void> _forgotPassword() async {

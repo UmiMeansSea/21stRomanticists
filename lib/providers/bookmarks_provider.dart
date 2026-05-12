@@ -136,6 +136,9 @@ class BookmarksProvider extends ChangeNotifier {
       ));
     }
     notifyListeners();
+    
+    // ── Immediate local persistence ──
+    _saveToCache();
 
     // ── Firestore write ──
     try {
@@ -160,7 +163,21 @@ class BookmarksProvider extends ChangeNotifier {
         _ids.remove(id);
         _items.removeWhere((i) => i.uniqueId == id);
       }
+      _saveToCache();
       notifyListeners();
+    }
+  }
+
+  Future<void> _saveToCache() async {
+    final uid = _auth.user?.uid;
+    if (uid == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheKey = '$_cachePrefix$uid';
+      final encoded = jsonEncode(_items.map((i) => i.toJson()).toList());
+      await prefs.setString(cacheKey, encoded);
+    } catch (e) {
+      debugPrint('Error saving bookmarks to cache: $e');
     }
   }
 

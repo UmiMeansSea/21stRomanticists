@@ -296,10 +296,19 @@ class FirebaseService {
       final rawData = snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
       var list = await compute(_parseSubmissions, rawData);
 
-      // Cache all submissions before filtering for next cache-first read
+      // [PERF FIX] Manually prepare for JSON storage since jsonEncode doesn't handle Timestamps
       final prefs = await SharedPreferences.getInstance();
-      final encoded = jsonEncode(list.map((s) => {'id': s.id, ...s.toJson()}).toList());
-      await prefs.setString(cacheKey, encoded);
+      final List<Map<String, dynamic>> cacheData = list.map((s) {
+        final map = s.toJson();
+        map['id'] = s.id;
+        // Convert Timestamp to ISO String for local storage
+        if (map['submittedAt'] is Timestamp) {
+          map['submittedAt'] = (map['submittedAt'] as Timestamp).toDate().toIso8601String();
+        }
+        return map;
+      }).toList();
+      
+      await prefs.setString(cacheKey, jsonEncode(cacheData));
 
       // Client-side status filter
       if (status != null) {

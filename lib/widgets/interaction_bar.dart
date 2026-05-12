@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:romanticists_app/app_theme.dart';
+import 'package:romanticists_app/providers/auth_provider.dart';
 
 class InteractionBar extends StatelessWidget {
   final int likeCount;
@@ -63,31 +66,31 @@ class InteractionBar extends StatelessWidget {
                 icon: isLiked ? Icons.favorite : Icons.favorite_border,
                 label: _formatCount(likeCount),
                 color: isLiked ? Colors.redAccent : Colors.white,
-                onTap: onLike,
+                onTap: () => _guardedAction(context, onLike),
               ),
               const _Divider(),
               _InteractionItem(
                 icon: Icons.chat_bubble_outline,
                 label: _formatCount(commentCount),
-                onTap: onComment,
+                onTap: () => _guardedAction(context, onComment),
               ),
               const _Divider(),
               _InteractionItem(
                 icon: Icons.repeat, 
                 label: _formatCount(reshareCount),
                 color: isReshared ? Colors.greenAccent : Colors.white,
-                onTap: onReshare,
+                onTap: () => _guardedAction(context, onReshare),
               ),
               const _Divider(),
               _InteractionItem(
                 icon: isSaved ? Icons.bookmark : Icons.bookmark_border_outlined,
                 color: isSaved ? AppColors.accent : Colors.white,
-                onTap: onSave,
+                onTap: () => _guardedAction(context, onSave),
               ),
               const _Divider(),
               _InteractionItem(
                 icon: Icons.share_outlined,
-                onTap: onShare,
+                onTap: onShare, // Sharing is usually allowed for guests
               ),
             ],
           ),
@@ -99,6 +102,39 @@ class InteractionBar extends StatelessWidget {
   String _formatCount(int count) {
     if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}k';
     return count.toString();
+  }
+
+  // ─── AUTH GUARD ────────────────────────────────────────────────────────────
+  
+  /// Checks if the user is logged in before executing an engagement action.
+  /// If not, shows a SnackBar prompting the user to login.
+  void _guardedAction(BuildContext context, VoidCallback action) {
+    final auth = context.read<AuthProvider>();
+    if (auth.isAuthenticated) {
+      action();
+    } else {
+      // User is a guest: Block action and show login prompt
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Login needed, sign up first.',
+            style: GoogleFonts.literata(
+              color: Colors.white,
+              fontSize: 14,
+            ),
+          ),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'LOGIN',
+            textColor: AppColors.accent,
+            onPressed: () => context.push('/login'),
+          ),
+        ),
+      );
+    }
   }
 }
 
