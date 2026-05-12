@@ -8,9 +8,8 @@ class FirebasePostRepository implements IPostRepository {
 
   @override
   Future<List<FeedItem>> fetchPosts({int page = 1, int? categoryId, String? search, String? tagName}) async {
-    // Firebase service retrieves all approved submissions and filters locally
-    // For large scale, we could pass pagination params down.
-    return await _service.getPublishedSubmissions();
+    final submissions = await _service.getPublishedSubmissions();
+    return submissions.map((s) => FeedItem.fromSubmission(s)).toList();
   }
 
   @override
@@ -30,18 +29,18 @@ class FirebasePostRepository implements IPostRepository {
 
   @override
   Future<String> createPost(FeedItem post) async {
-    if (post is Submission) {
-      return await _service.submitWork(post);
+    if (post.submission != null) {
+      return await _service.submitWork(post.submission!);
     }
-    throw ArgumentError('Expected Submission');
+    throw ArgumentError('Expected FeedItem with Submission');
   }
 
   @override
   Future<void> updatePost(String id, FeedItem post) async {
-    if (post is Submission) {
-      await _service.updateSubmission(id, post);
+    if (post.submission != null) {
+      await _service.updateSubmission(id, post.submission!);
     } else {
-      throw ArgumentError('Expected Submission');
+      throw ArgumentError('Expected FeedItem with Submission');
     }
   }
 

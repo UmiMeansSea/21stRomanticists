@@ -15,6 +15,7 @@ import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/services/image_service.dart';
 import 'package:romanticists_app/repositories/post_repository.dart';
+import 'package:romanticists_app/models/feed_item.dart';
 
 /// Write & publish screen — supports editing existing submissions and drafts.
 class SubmitScreen extends StatefulWidget {
@@ -145,7 +146,6 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
 
     // Give it to the UploadProvider and leave immediately
     context.read<UploadProvider>().startUpload(
-      repository: repo,
       uid: uid,
       submission: submission,
       imageFile: _imageFile,
@@ -185,9 +185,9 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
       final repo = context.read<IPostRepository>();
 
       if (_currentSubmissionId != null) {
-        await repo.updatePost(_currentSubmissionId!, submission);
+        await repo.updatePost(_currentSubmissionId!, FeedItem.fromSubmission(submission));
       } else {
-        final newId = await repo.createPost(submission);
+        final newId = await repo.createPost(FeedItem.fromSubmission(submission));
         _currentSubmissionId = newId;
       }
 

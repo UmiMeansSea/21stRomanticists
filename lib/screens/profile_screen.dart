@@ -323,7 +323,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildPublishedGrid() {
     if (_loading) {
-      return const Center(
+      return Center(
           child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary));
     }
     if (_submissions == null || _submissions!.isEmpty) {
@@ -396,7 +396,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Stack(
               children: [
                 if (col.coverImageUrl == null)
-                  const Center(
+                  Center(
                     child: Icon(Icons.collections_bookmark_outlined,
                         size: 36, color: Theme.of(context).colorScheme.outline),
                   ),
@@ -472,7 +472,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 class _StatItem extends StatelessWidget {
   final String count;
   final String label;
-  const _StatItem({required this.count, required this.label});
+  _StatItem({required this.count, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -655,11 +655,11 @@ class _GridCard extends StatelessWidget {
                       fit: BoxFit.cover,
                       // [Technique: Downsampling] Grid items only need 400px width
                       memCacheWidth: 400,
-                      placeholder: (_, __) => _placeholderShimmer(),
-                      errorWidget: (_, __, ___) => _placeholder(),
+                      placeholder: (_, __) => _placeholderShimmer(context),
+                      errorWidget: (_, __, ___) => _placeholder(context),
                     )
                   else
-                    _placeholder(),
+                    _placeholder(context),
                     Positioned(
                       top: 8,
                       right: 8,
@@ -696,14 +696,14 @@ class _GridCard extends StatelessWidget {
     );
   }
 
-  Widget _placeholder() => Container(
+  Widget _placeholder(BuildContext context) => Container(
         color: Theme.of(context).colorScheme.surfaceContainerHigh,
         child: Icon(Icons.auto_stories_outlined, color: Theme.of(context).colorScheme.outline),
       );
-
-  Widget _placeholderShimmer() => Container(
+ 
+  Widget _placeholderShimmer(BuildContext context) => Container(
     color: Theme.of(context).colorScheme.surfaceContainerHigh,
-    child: const Center(
+    child: Center(
       child: CircularProgressIndicator(strokeWidth: 1.5, color: Theme.of(context).colorScheme.outline),
     ),
   );

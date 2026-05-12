@@ -240,7 +240,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                                   ? Theme.of(context).colorScheme.onSurface 
                                   : Theme.of(context).colorScheme.surface,
                               side: _isSubscribed 
-                                  ? const BorderSide(color: Theme.of(context).colorScheme.outline)
+                                  ? BorderSide(color: Theme.of(context).colorScheme.outline)
                                   : BorderSide.none,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               elevation: 0,

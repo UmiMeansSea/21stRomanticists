@@ -28,6 +28,8 @@ import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/services/notification_service.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
+import 'package:romanticists_app/repositories/firebase_post_repository.dart';
+import 'package:romanticists_app/repositories/wp_post_repository.dart';
 import 'package:romanticists_app/widgets/app_shell.dart';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -129,9 +131,15 @@ class RomanticistsApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProxyProvider<AuthProvider, PostsProvider>(
-          create: (_) => PostsProvider(),
+          create: (_) => PostsProvider(
+            firebaseRepository: FirebasePostRepository(),
+            wpRepository: WpPostRepository(),
+          ),
           update: (_, auth, posts) {
-            final p = posts ?? PostsProvider();
+            final p = posts ?? PostsProvider(
+              firebaseRepository: FirebasePostRepository(),
+              wpRepository: WpPostRepository(),
+            );
             p.updateUserId(auth.uid);
             return p;
           },

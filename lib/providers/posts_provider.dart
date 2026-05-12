@@ -280,7 +280,8 @@ class PostsProvider extends ChangeNotifier {
       // ── STEP C: Compare fresh vs. cached ─────────────────────────────────
       // Find posts whose IDs are NOT in the current local list.
       final existingIds = _posts.map((p) => p.id).toSet();
-      final newPosts = fresh.where((p) => !existingIds.contains(p.id)).toList();
+      final newPosts = fresh.map((e) => e.wpPost).whereType<Post>()
+          .where((p) => !existingIds.contains(p.id)).toList();
 
       if (newPosts.isNotEmpty) {
         // Inject new posts at the TOP of the feed.
@@ -288,8 +289,8 @@ class PostsProvider extends ChangeNotifier {
       } else {
         // Even if no new posts, update existing ones with fresh data
         // (e.g. updated titles, images from WP edits).
-        final freshById = {for (final p in fresh) p.id: p};
-        _posts = _posts.map((p) => freshById[p.id] ?? p).toList();
+        final freshById = {for (final e in fresh) if (e.wpPost != null) e.wpPost!.id: e.wpPost!};
+        _posts = _posts.map((p) => freshById[p.id] ?? p).cast<Post>().toList();
       }
 
       // Overwrite disk cache with latest data.
@@ -309,7 +310,7 @@ class PostsProvider extends ChangeNotifier {
   Future<void> _fetchSubmissions() async {
     try {
       final items = await firebaseRepository.fetchPosts();
-      _submissions = items.whereType<Submission>().toList();
+      _submissions = items.map((e) => e.submission).whereType<Submission>().toList();
       notifyListeners();
     } catch (e) {
       debugPrint('Firestore submissions failed: $e');
@@ -355,7 +356,7 @@ class PostsProvider extends ChangeNotifier {
 
         if (_searchQuery.isNotEmpty) {
           final res = await wpRepository.fetchPosts(search: _searchQuery, page: _currentPage);
-          results = res.whereType<Post>().toList();
+          results = res.map((e) => e.wpPost).whereType<Post>().toList();
         } else {
           _totalPages = await wpRepository.fetchTotalPages(
             categoryId: categoryId == 0 ? null : categoryId,
@@ -367,7 +368,7 @@ class PostsProvider extends ChangeNotifier {
             categoryId: categoryId == 0 ? null : categoryId,
             tagName: _selectedTag,
           );
-          results = res.whereType<Post>().toList();
+          results = res.map((e) => e.wpPost).whereType<Post>().toList();
         }
         // FIX 3: Deduplicate posts (Avoid overlapping items from pagination)
         final existingIds = _posts.map((p) => p.id).toSet();
@@ -376,7 +377,8 @@ class PostsProvider extends ChangeNotifier {
 
         // Only update the disk cache when fetching unfiltered page 1
         if (reset && _selectedCategory == null && _selectedTag == null && _searchQuery.isEmpty) {
-          unawaited(wpRepository.cachePosts(results));
+          final feedItemsToCache = results.map((p) => FeedItem.fromPost(p, categoryLabel: _catLabel(p))).toList();
+          unawaited(wpRepository.cachePosts(feedItemsToCache));
         }
       } catch (e) {
         debugPrint('WP load failed: $e');
@@ -387,7 +389,7 @@ class PostsProvider extends ChangeNotifier {
       if (reset) {
         try {
           final items = await firebaseRepository.fetchPosts();
-          _submissions = items.whereType<Submission>().toList();
+          _submissions = items.map((e) => e.submission).whereType<Submission>().toList();
         } catch (e) {
           debugPrint('Firestore load failed: $e');
           _submissions = [];
@@ -535,7 +537,7 @@ class PostsProvider extends ChangeNotifier {
       await firebaseRepository.migrateWordPressPost(item.wpPost!);
       // Re-fetch to get the newly created submission
       final results = await firebaseRepository.fetchPosts();
-      sub = results.whereType<Submission>().firstWhere((s) => s.wpId == item.wpPost!.id);
+      sub = results.map((e) => e.submission).whereType<Submission>().firstWhere((s) => s.wpId == item.wpPost!.id);
       _submissions.add(sub);
       notifyListeners();
     }
@@ -581,7 +583,7 @@ class PostsProvider extends ChangeNotifier {
     } else if (item.wpPost != null) {
       await firebaseRepository.migrateWordPressPost(item.wpPost!);
       final results = await firebaseRepository.fetchPosts();
-      sub = results.whereType<Submission>().firstWhere((s) => s.wpId == item.wpPost!.id);
+      sub = results.map((e) => e.submission).whereType<Submission>().firstWhere((s) => s.wpId == item.wpPost!.id);
       _submissions.add(sub);
       notifyListeners();
     }

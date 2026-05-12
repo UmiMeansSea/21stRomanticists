@@ -439,10 +439,10 @@ class _PostImage extends StatelessWidget {
               ),
             ],
           ),
-          placeholder: (_, __) => const _ShimmerBox(),
+          placeholder: (_, __) => _ShimmerBox(),
           errorWidget: (_, __, ___) => Container(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: const Center(
+            child: Center(
               child: Icon(Icons.auto_stories_outlined,
                   color: Color(0x66000000), size: 40),
             ),

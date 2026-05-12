@@ -88,7 +88,7 @@ class _AllPostsTab extends StatelessWidget {
     return Consumer<BookmarksProvider>(
       builder: (context, bm, _) {
         if (bm.status == BookmarksStatus.loading || bm.status == BookmarksStatus.initial) {
-          return const Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary, strokeWidth: 2));
+          return Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary, strokeWidth: 2));
         }
         if (bm.status == BookmarksStatus.failure) {
           return _ErrorState(message: bm.errorMessage ?? 'Could not load bookmarks.');
@@ -132,7 +132,7 @@ class _AllPostsTab extends StatelessWidget {
                           imageUrl: item.imageUrl!,
                           fit: BoxFit.cover,
                           placeholder: (_, __) => const SizedBox(),
-                          errorWidget: (_, __, ___) => const Center(child: Icon(Icons.article, color: Theme.of(context).colorScheme.outline)),
+                          errorWidget: (_, __, ___) => Center(child: Icon(Icons.article, color: Theme.of(context).colorScheme.outline)),
                         )
                       : Center(
                           child: Padding(
@@ -165,7 +165,7 @@ class _CollectionsTab extends StatelessWidget {
     return Consumer<CollectionsProvider>(
       builder: (context, cols, _) {
         if (cols.status == CollectionsStatus.loading || cols.status == CollectionsStatus.initial) {
-          return const Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary, strokeWidth: 2));
+          return Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary, strokeWidth: 2));
         }
         if (cols.status == CollectionsStatus.failure) {
           return _ErrorState(message: cols.errorMessage ?? 'Could not load collections.');
@@ -227,7 +227,7 @@ class _CollectionsTab extends StatelessWidget {
                               : null,
                         ),
                         child: col.coverImageUrl == null || col.coverImageUrl!.isEmpty
-                            ? const Center(child: Icon(Icons.collections_bookmark_outlined, size: 40, color: Theme.of(context).colorScheme.outline))
+                            ? Center(child: Icon(Icons.collections_bookmark_outlined, size: 40, color: Theme.of(context).colorScheme.outline))
                             : null,
                       ),
                     ),
@@ -287,7 +287,7 @@ class _EmptyState extends StatelessWidget {
             onPressed: () => context.go('/'),
             style: OutlinedButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.primary,
-              side: const BorderSide(color: Theme.of(context).colorScheme.primary),
+              side: BorderSide(color: Theme.of(context).colorScheme.primary),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
             ),
           ),

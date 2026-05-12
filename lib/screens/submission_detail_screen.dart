@@ -98,7 +98,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     final submission = _submission;
     final date = DateFormat('MMMM d, yyyy').format(submission.submittedAt);
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Stack(
         alignment: Alignment.bottomCenter,
         children: [
@@ -108,8 +108,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
           // ── App Bar ──────────────────────────────────────────────────────
           SliverAppBar(
             pinned: true,
-            backgroundColor: AppColors.background,
-            foregroundColor: AppColors.primary,
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            foregroundColor: Theme.of(context).colorScheme.primary,
             elevation: 0,
             actions: [
               Consumer<BookmarksProvider>(
@@ -185,7 +185,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('Copied to clipboard', style: GoogleFonts.literata(color: Colors.white)),
-                          backgroundColor: AppColors.primary,
+                          backgroundColor: Theme.of(context).colorScheme.primary,
                           behavior: SnackBarBehavior.floating,
                         ),
                       );
@@ -394,7 +394,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         ],
                       ),
                       placeholder: (_, __) => Container(
-                        color: AppColors.surfaceContainerHigh,
+                        color: Theme.of(context).colorScheme.surfaceContainerHigh,
                       ),
                       errorWidget: (_, __, ___) => const SizedBox.shrink(),
                     ),
@@ -412,7 +412,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.8,
-                          color: AppColors.secondary,
+                          color: Theme.of(context).colorScheme.secondary,
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -424,7 +424,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           fontSize: 32,
                           fontWeight: FontWeight.w500,
                           height: 1.2,
-                          color: AppColors.primary,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -437,7 +437,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.onSurface,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -464,7 +464,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         style: GoogleFonts.literata(
                           fontSize: 17,
                           height: 1.9,
-                          color: AppColors.onSurface,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
 
@@ -475,7 +475,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           style: GoogleFonts.ebGaramond(
                             fontSize: 16,
                             fontStyle: FontStyle.italic,
-                            color: AppColors.outline,
+                            color: Theme.of(context).colorScheme.outline,
                             letterSpacing: 1,
                           ),
                         ),
@@ -654,7 +654,7 @@ ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text('Sign in to interact with posts.',
         style: GoogleFonts.literata(color: Colors.white)),
-    backgroundColor: AppColors.primary,
+    backgroundColor: Theme.of(context).colorScheme.primary,
     behavior: SnackBarBehavior.floating,
   ),
 );
@@ -720,9 +720,9 @@ class _AuthorProfileSectionState extends State<_AuthorProfileSection> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -731,7 +731,7 @@ class _AuthorProfileSectionState extends State<_AuthorProfileSection> {
             children: [
               CircleAvatar(
                 radius: 28,
-                backgroundColor: AppColors.surfaceContainerHigh,
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
                 backgroundImage: photoUrl != null ? CachedNetworkImageProvider(photoUrl) : null,
                 child: photoUrl == null ? const Icon(Icons.person_outline, size: 28) : null,
               ),
@@ -745,14 +745,14 @@ class _AuthorProfileSectionState extends State<_AuthorProfileSection> {
                       style: GoogleFonts.ebGaramond(
                         fontSize: 22,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                     Text(
                       'Romanticist Writer',
                       style: GoogleFonts.inter(
                         fontSize: 13,
-                        color: AppColors.onSurfaceVariant,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         letterSpacing: 0.2,
                       ),
                     ),
@@ -784,8 +784,8 @@ class _AuthorProfileSectionState extends State<_AuthorProfileSection> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.onPrimary,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     minimumSize: Size.zero,

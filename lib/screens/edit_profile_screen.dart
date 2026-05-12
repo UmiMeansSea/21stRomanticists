@@ -72,8 +72,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: 'Crop Profile Picture',
-            toolbarColor: AppColors.background,
-            toolbarWidgetColor: AppColors.primary,
+            toolbarColor: Theme.of(context).colorScheme.surface,
+            toolbarWidgetColor: Theme.of(context).colorScheme.primary,
             initAspectRatio: CropAspectRatioPreset.square,
             lockAspectRatio: true,
           ),
@@ -141,14 +141,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: Text('Edit Profile', style: GoogleFonts.ebGaramond(fontSize: 22)),
         actions: [
           if (!_loading)
             TextButton(
               onPressed: _save,
-              child: Text('SAVE', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.primary)),
+              child: Text('SAVE', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
             )
           else
             const Padding(
@@ -173,7 +173,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       height: 120,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
-                        color: AppColors.surfaceContainerHigh,
+                        color: Theme.of(context).colorScheme.surfaceContainerHigh,
                         image: _imageFile != null 
                           ? DecorationImage(image: FileImage(_imageFile!), fit: BoxFit.cover)
                           : (_currentPhotoUrl != null 
@@ -181,7 +181,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               : null),
                       ),
                       child: (_imageFile == null && _currentPhotoUrl == null)
-                          ? const Icon(Icons.person, size: 60, color: AppColors.outline)
+                          ? Icon(Icons.person, size: 60, color: Theme.of(context).colorScheme.outline)
                           : null,
                     ),
                     Positioned(
@@ -189,11 +189,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       right: 0,
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.camera_alt, color: AppColors.background, size: 20),
+                        child: Icon(Icons.camera_alt, color: Theme.of(context).colorScheme.surface, size: 20),
                       ),
                     ),
                   ],
@@ -268,7 +268,7 @@ class _ProfileTextField extends StatelessWidget {
             fontSize: 10,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.2,
-            color: AppColors.outline,
+            color: Theme.of(context).colorScheme.outline,
           ),
         ),
         const SizedBox(height: 8),
@@ -281,7 +281,7 @@ class _ProfileTextField extends StatelessWidget {
             hintText: hint,
             prefixText: prefix,
             filled: true,
-            fillColor: AppColors.surfaceContainerLow,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerLow,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,

@@ -91,10 +91,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
           leading: _BackArrow(),
-          backgroundColor: AppColors.background,
+          backgroundColor: Theme.of(context).colorScheme.surface,
         ),
         body: const Center(
           child: SizedBox(
@@ -107,8 +107,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
     if (_error != null) {
       return Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(leading: _BackArrow(), backgroundColor: AppColors.background),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        appBar: AppBar(leading: _BackArrow(), backgroundColor: Theme.of(context).colorScheme.surface),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
@@ -116,7 +116,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.cloud_off_outlined, size: 56,
-                    color: AppColors.outline.withValues(alpha: 0.5)),
+                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
                 const SizedBox(height: 20),
                 Text('Could not load post',
                     style: Theme.of(context).textTheme.headlineMedium,
@@ -199,7 +199,7 @@ class _PostDetailBodyState extends State<_PostDetailBody> {
   Widget build(BuildContext context) {
     final post = widget.post;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Stack(
         children: [
           CustomScrollView(
@@ -239,7 +239,7 @@ class _PostDetailBodyState extends State<_PostDetailBody> {
                 child: LinearProgressIndicator(
                   value: _progress,
                   backgroundColor: Colors.transparent,
-                  color: AppColors.secondary,
+                  color: Theme.of(context).colorScheme.secondary,
                   minHeight: 2,
                 ),
               ),
@@ -256,8 +256,8 @@ class _PostDetailBodyState extends State<_PostDetailBody> {
     return SliverAppBar(
       expandedHeight: hasImage ? 280 : 0,
       pinned: true,
-      backgroundColor: AppColors.background,
-      foregroundColor: AppColors.primary,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      foregroundColor: Theme.of(context).colorScheme.primary,
       leading: _BackArrow(),
       actions: [
         _BookmarkAction(post: post),
@@ -326,7 +326,7 @@ class _MetaRow extends StatelessWidget {
         // Author avatar
         CircleAvatar(
           radius: 16,
-          backgroundColor: AppColors.secondary,
+          backgroundColor: Theme.of(context).colorScheme.secondary,
           child: Text(
             post.author.isNotEmpty ? post.author[0].toUpperCase() : 'A',
             style: GoogleFonts.inter(
@@ -346,14 +346,14 @@ class _MetaRow extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.onSurface,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               Text(
                 '$date  ·  $readingMinutes min read',
                 style: GoogleFonts.inter(
                   fontSize: 11,
-                  color: AppColors.onSurfaceVariant,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   letterSpacing: 0.2,
                 ),
               ),
@@ -377,7 +377,7 @@ class _Title extends StatelessWidget {
         fontSize: 36,
         fontWeight: FontWeight.w500,
         height: 1.15,
-        color: AppColors.onSurface,
+        color: Theme.of(context).colorScheme.onSurface,
         letterSpacing: -0.5,
       ),
     );
@@ -397,32 +397,32 @@ class _Content extends StatelessWidget {
           fontFamily: 'Literata',
           fontSize: FontSize(17),
           lineHeight: LineHeight(1.8),
-          color: AppColors.onSurface,
+          color: Theme.of(context).colorScheme.onSurface,
           margin: Margins.zero,
           padding: HtmlPaddings.zero,
         ),
         'p': Style(margin: Margins.only(bottom: 22)),
         'h1': Style(fontFamily: 'EB Garamond', fontSize: FontSize(28),
-            color: AppColors.onSurface, margin: Margins.only(top: 28, bottom: 10)),
+            color: Theme.of(context).colorScheme.onSurface, margin: Margins.only(top: 28, bottom: 10)),
         'h2': Style(fontFamily: 'EB Garamond', fontSize: FontSize(24),
-            color: AppColors.onSurface, margin: Margins.only(top: 24, bottom: 8)),
+            color: Theme.of(context).colorScheme.onSurface, margin: Margins.only(top: 24, bottom: 8)),
         'h3': Style(fontFamily: 'EB Garamond', fontSize: FontSize(20),
-            color: AppColors.onSurface, margin: Margins.only(top: 20, bottom: 6)),
+            color: Theme.of(context).colorScheme.onSurface, margin: Margins.only(top: 20, bottom: 6)),
         'blockquote': Style(
-          border: const Border(
-            left: BorderSide(color: AppColors.secondary, width: 3),
+          border: Border(
+            left: BorderSide(color: Theme.of(context).colorScheme.secondary, width: 3),
           ),
           padding: HtmlPaddings.only(left: 18),
           margin: Margins.only(left: 0, top: 16, bottom: 16),
           fontStyle: FontStyle.italic,
           fontSize: FontSize(18),
-          color: AppColors.onSurfaceVariant,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         'em': Style(fontStyle: FontStyle.italic),
         'i': Style(fontStyle: FontStyle.italic),
-        'strong': Style(fontWeight: FontWeight.w600, color: AppColors.onSurface),
+        'strong': Style(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
         'a': Style(
-          color: AppColors.secondary,
+          color: Theme.of(context).colorScheme.secondary,
           textDecoration: TextDecoration.underline,
         ),
         'img': Style(
@@ -447,8 +447,8 @@ class _ArticleFooter extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: AppColors.surfaceContainerLow,
-            border: Border.all(color: AppColors.outlineVariant, width: 0.4),
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: 0.4),
             borderRadius: BorderRadius.circular(2),
           ),
           child: Column(
@@ -458,7 +458,7 @@ class _ArticleFooter extends StatelessWidget {
                 style: GoogleFonts.ebGaramond(
                   fontSize: 18,
                   fontStyle: FontStyle.italic,
-                  color: AppColors.outline,
+                  color: Theme.of(context).colorScheme.outline,
                   letterSpacing: 2,
                 ),
               ),
@@ -468,7 +468,7 @@ class _ArticleFooter extends StatelessWidget {
                 style: GoogleFonts.ebGaramond(
                   fontSize: 20,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.onSurface,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 6),
@@ -477,7 +477,7 @@ class _ArticleFooter extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: GoogleFonts.literata(
                   fontSize: 13,
-                  color: AppColors.onSurfaceVariant,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontStyle: FontStyle.italic,
                   height: 1.5,
                 ),
@@ -499,7 +499,7 @@ class _ArticleFooter extends StatelessWidget {
                             SnackBar(
                               content: Text('Sign in to save posts.',
                                   style: GoogleFonts.literata(color: Colors.white)),
-                              backgroundColor: AppColors.primary,
+                              backgroundColor: Theme.of(context).colorScheme.primary,
                               behavior: SnackBarBehavior.floating,
                               action: SnackBarAction(
                                 label: 'Sign In',
@@ -537,9 +537,9 @@ class _ArticleFooter extends StatelessWidget {
                         }
                       },
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: saved ? AppColors.secondary : AppColors.primary,
+                        foregroundColor: saved ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.primary,
                         side: BorderSide(
-                          color: saved ? AppColors.secondary : AppColors.primary,
+                          color: saved ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.primary,
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -554,8 +554,8 @@ class _ArticleFooter extends StatelessWidget {
                       label: const Text('Share'),
                       onPressed: () => _sharePost(post),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.onPrimary,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(2)),
@@ -598,7 +598,7 @@ class _BookmarkAction extends StatelessWidget {
             child: Icon(
               saved ? Icons.bookmark : Icons.bookmark_border_outlined,
               key: ValueKey(saved),
-              color: saved ? AppColors.secondary : AppColors.primary,
+              color: saved ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.primary,
             ),
           ),
           onPressed: () async {
@@ -608,7 +608,7 @@ class _BookmarkAction extends StatelessWidget {
                 SnackBar(
                   content: Text('Sign in to save posts.',
                       style: GoogleFonts.literata(color: Colors.white)),
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   behavior: SnackBarBehavior.floating,
                   action: SnackBarAction(
                     label: 'Sign In',
@@ -677,7 +677,7 @@ class _MoreOptionsAction extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Sign in to interact.', style: GoogleFonts.literata(color: Colors.white)),
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -706,7 +706,7 @@ class _MoreOptionsAction extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Copied to clipboard', style: GoogleFonts.literata(color: Colors.white)),
-                backgroundColor: AppColors.primary,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 behavior: SnackBarBehavior.floating,
               ),
             );

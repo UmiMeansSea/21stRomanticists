@@ -36,22 +36,22 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         centerTitle: true,
         title: Text(
           'Activity',
           style: GoogleFonts.ebGaramond(
-              fontSize: 24, fontWeight: FontWeight.w500, color: AppColors.primary),
+              fontSize: 24, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.primary),
         ),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: AppColors.primary,
+          indicatorColor: Theme.of(context).colorScheme.primary,
           indicatorWeight: 2,
-          labelColor: AppColors.onSurface,
-          unselectedLabelColor: AppColors.outline,
+          labelColor: Theme.of(context).colorScheme.onSurface,
+          unselectedLabelColor: Theme.of(context).colorScheme.outline,
           labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
           unselectedLabelStyle: GoogleFonts.inter(fontSize: 13),
           tabs: const [
@@ -161,11 +161,11 @@ class _SubscribedPostTile extends StatelessWidget {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       leading: CircleAvatar(
         radius: 22,
-        backgroundColor: AppColors.surfaceContainerHigh,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
         child: Text(
           (sub.authorName ?? '?')[0].toUpperCase(),
           style: GoogleFonts.ebGaramond(
-              fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
+              fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
         ),
       ),
       title: Text(
@@ -176,9 +176,9 @@ class _SubscribedPostTile extends StatelessWidget {
       ),
       subtitle: Text(
         '${sub.authorName ?? 'Unknown'} · $date',
-        style: GoogleFonts.inter(fontSize: 12, color: AppColors.outline),
+        style: GoogleFonts.inter(fontSize: 12, color: Theme.of(context).colorScheme.outline),
       ),
-      trailing: const Icon(Icons.chevron_right, color: AppColors.outline),
+      trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
       onTap: () {
         final uid = sub.userId;
         if (uid != null && uid.isNotEmpty) {
@@ -266,12 +266,12 @@ class _NotificationTile extends StatelessWidget {
     }
   }
 
-  Color _iconColor(String type) {
+  Color _iconColor(BuildContext context, String type) {
     switch (type) {
       case 'like': return const Color(0xFFE05252);
-      case 'subscribe': return AppColors.secondary;
-      case 'new_post': return AppColors.accent;
-      default: return AppColors.outline;
+      case 'subscribe': return Theme.of(context).colorScheme.secondary;
+      case 'new_post': return Theme.of(context).colorScheme.primary;
+      default: return Theme.of(context).colorScheme.outline;
     }
   }
 
@@ -303,14 +303,14 @@ class _NotificationTile extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: _iconColor(type).withValues(alpha: 0.1),
+          color: _iconColor(context, type).withValues(alpha: 0.1),
           shape: BoxShape.circle,
         ),
-        child: Icon(_icon(type), color: _iconColor(type), size: 22),
+        child: Icon(_icon(type), color: _iconColor(context, type), size: 22),
       ),
       title: Text(
         _message(type, actorName),
-        style: GoogleFonts.literata(fontSize: 14, color: AppColors.onSurface),
+        style: GoogleFonts.literata(fontSize: 14, color: Theme.of(context).colorScheme.onSurface),
       ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,14 +319,14 @@ class _NotificationTile extends StatelessWidget {
             Text(
               '"$title"',
               style: GoogleFonts.ebGaramond(
-                  fontSize: 13, fontStyle: FontStyle.italic, color: AppColors.onSurfaceVariant),
+                  fontSize: 13, fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.onSurfaceVariant),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           if (date != null)
             Text(
               DateFormat('MMM d, h:mm a').format(date),
-              style: GoogleFonts.inter(fontSize: 11, color: AppColors.outline),
+              style: GoogleFonts.inter(fontSize: 11, color: Theme.of(context).colorScheme.outline),
             ),
         ],
       ),
@@ -350,14 +350,14 @@ class _EmptyTab extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 56, color: AppColors.outline.withValues(alpha: 0.4)),
+            Icon(icon, size: 56, color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.4)),
             const SizedBox(height: 20),
-            Text(title, style: GoogleFonts.ebGaramond(fontSize: 22, color: AppColors.onSurface)),
+            Text(title, style: GoogleFonts.ebGaramond(fontSize: 22, color: Theme.of(context).colorScheme.onSurface)),
             const SizedBox(height: 8),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: GoogleFonts.literata(fontSize: 14, color: AppColors.outline, fontStyle: FontStyle.italic, height: 1.5),
+              style: GoogleFonts.literata(fontSize: 14, color: Theme.of(context).colorScheme.outline, fontStyle: FontStyle.italic, height: 1.5),
             ),
           ],
         ),
@@ -373,7 +373,7 @@ class _SignInPrompt extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.lock_outline, size: 48, color: AppColors.outline.withValues(alpha: 0.4)),
+          Icon(Icons.lock_outline, size: 48, color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.4)),
           const SizedBox(height: 16),
           Text('Sign in to see your activity',
               style: GoogleFonts.ebGaramond(fontSize: 20)),

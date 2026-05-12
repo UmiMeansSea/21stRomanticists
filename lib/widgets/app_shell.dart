@@ -43,7 +43,7 @@ class AppShell extends StatelessWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         body: Stack(
           children: [
             child,
@@ -52,10 +52,10 @@ class AppShell extends StatelessWidget {
           ],
         ),
         bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-            color: AppColors.surfaceContainerLow,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
             border: Border(
-              top: BorderSide(color: AppColors.outlineVariant, width: 0.4),
+              top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant, width: 0.4),
             ),
           ),
           child: SafeArea(
@@ -122,7 +122,7 @@ class _NavItem extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(
             top: selected
-                ? const BorderSide(color: AppColors.primary, width: 2)
+                ? BorderSide(color: Theme.of(context).colorScheme.primary, width: 2)
                 : BorderSide.none,
           ),
         ),
@@ -131,7 +131,7 @@ class _NavItem extends StatelessWidget {
           children: [
             Icon(
               selected ? tab.activeIcon : tab.icon,
-              color: selected ? AppColors.primary : AppColors.onSurfaceVariant,
+              color: selected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
               size: 22,
             ),
             const SizedBox(height: 3),
@@ -140,7 +140,7 @@ class _NavItem extends StatelessWidget {
               style: GoogleFonts.inter(
                 fontSize: 11,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                color: selected ? AppColors.primary : AppColors.onSurfaceVariant,
+                color: selected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -173,7 +173,7 @@ class _UploadOverlay extends StatelessWidget {
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: isError ? AppColors.errorContainer : Colors.black,
+            color: isError ? Theme.of(context).colorScheme.errorContainer : Colors.black,
             borderRadius: BorderRadius.circular(100),
             boxShadow: [
               BoxShadow(
@@ -198,7 +198,7 @@ class _UploadOverlay extends StatelessWidget {
               else if (isSuccess)
                 const Icon(Icons.check_circle, color: Colors.green, size: 20)
               else if (isError)
-                const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error, size: 20),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -210,7 +210,7 @@ class _UploadOverlay extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: isError ? AppColors.error : Colors.white,
+                    color: isError ? Theme.of(context).colorScheme.error : Colors.white,
                   ),
                 ),
               ),
@@ -220,7 +220,7 @@ class _UploadOverlay extends StatelessWidget {
                   child: Icon(
                     Icons.close,
                     size: 18,
-                    color: isError ? AppColors.error : Colors.white70,
+                    color: isError ? Theme.of(context).colorScheme.error : Colors.white70,
                   ),
                 ),
             ],

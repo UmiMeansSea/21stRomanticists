@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:romanticists_app/core/error/failure.dart';
 
 /// Auth states the UI reacts to.
 enum AuthStatus { unknown, authenticated, unauthenticated }
@@ -31,10 +32,11 @@ class AuthProvider extends ChangeNotifier {
   }
 
   AuthStatus _status = AuthStatus.unknown;
-  String? _errorMessage;
+  AuthFailure? _failure;
   bool _loading = false;
 
-  String? get errorMessage => _errorMessage;
+  AuthFailure? get failure => _failure;
+  String? get errorMessage => _failure?.message;
   bool get isLoading => _loading;
 
   // ─── Auth state listener ───────────────────────────────────────────────────
@@ -51,17 +53,17 @@ class AuthProvider extends ChangeNotifier {
   /// Sign in with email and password. Returns `true` on success.
   Future<bool> signInWithEmail(String email, String password) async {
     _setLoading(true);
-    _errorMessage = null; // Clear previous errors
+    _failure = null; // Clear previous errors
     try {
       await _auth.signInWithEmailAndPassword(
           email: email.trim(), password: password);
-      _errorMessage = null;
+      _failure = null;
       return true;
     } on FirebaseAuthException catch (e) {
-      _errorMessage = _friendlyError(e.code);
+      _failure = AuthFailure(_friendlyError(e.code), code: e.code);
       return false;
     } catch (e) {
-      _errorMessage = 'An unexpected error occurred. Please try again.';
+      _failure = const AuthFailure('An unexpected error occurred. Please try again.');
       return false;
     } finally {
       // ENSURE spinner stops no matter what
@@ -73,7 +75,7 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> createAccount(String email, String password,
       {String? displayName}) async {
     _setLoading(true);
-    _errorMessage = null; // Clear previous errors
+    _failure = null; // Clear previous errors
     try {
       final cred = await _auth.createUserWithEmailAndPassword(
           email: email.trim(), password: password);
@@ -81,13 +83,13 @@ class AuthProvider extends ChangeNotifier {
         await cred.user?.updateDisplayName(displayName.trim());
         await cred.user?.reload();
       }
-      _errorMessage = null;
+      _failure = null;
       return true;
     } on FirebaseAuthException catch (e) {
-      _errorMessage = _friendlyError(e.code);
+      _failure = AuthFailure(_friendlyError(e.code), code: e.code);
       return false;
     } catch (e) {
-      _errorMessage = 'Account creation failed. Please try again.';
+      _failure = const AuthFailure('Account creation failed. Please try again.');
       return false;
     } finally {
       // ENSURE spinner stops no matter what
@@ -100,7 +102,7 @@ class AuthProvider extends ChangeNotifier {
   /// Opens the Google OAuth picker. Returns `true` on success.
   Future<bool> signInWithGoogle() async {
     _setLoading(true);
-    _errorMessage = null; // Clear previous errors
+    _failure = null; // Clear previous errors
     try {
       final googleUser = await _google.signIn();
       if (googleUser == null) {
@@ -113,13 +115,13 @@ class AuthProvider extends ChangeNotifier {
         idToken: googleAuth.idToken,
       );
       await _auth.signInWithCredential(credential);
-      _errorMessage = null;
+      _failure = null;
       return true;
     } on FirebaseAuthException catch (e) {
-      _errorMessage = _friendlyError(e.code);
+      _failure = AuthFailure(_friendlyError(e.code), code: e.code);
       return false;
     } catch (e) {
-      _errorMessage = 'Google sign-in failed. Please try again.';
+      _failure = const AuthFailure('Google sign-in failed. Please try again.');
       return false;
     } finally {
       // ENSURE spinner stops no matter what
@@ -132,9 +134,11 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> sendPasswordReset(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email.trim());
+      _failure = null;
       return true;
     } on FirebaseAuthException catch (e) {
-      _errorMessage = _friendlyError(e.code);
+      _failure = AuthFailure(_friendlyError(e.code), code: e.code);
+      notifyListeners();
       return false;
     }
   }
@@ -168,7 +172,7 @@ class AuthProvider extends ChangeNotifier {
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
   void clearError() {
-    _errorMessage = null;
+    _failure = null;
     notifyListeners();
   }
 

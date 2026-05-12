@@ -8,10 +8,13 @@ class WpPostRepository implements IPostRepository {
 
   @override
   Future<List<FeedItem>> fetchPosts({int page = 1, int? categoryId, String? search, String? tagName}) async {
+    final List<Post> posts;
     if (search != null && search.isNotEmpty) {
-      return await _api.searchPosts(search, page: page);
+      posts = await _api.searchPosts(search, page: page);
+    } else {
+      posts = await _api.fetchPosts(page: page, categoryId: categoryId, tagName: tagName);
     }
-    return await _api.fetchPosts(page: page, categoryId: categoryId, tagName: tagName);
+    return posts.map((p) => FeedItem.fromPost(p)).toList();
   }
 
   @override
@@ -21,12 +24,13 @@ class WpPostRepository implements IPostRepository {
 
   @override
   Future<List<FeedItem>> getCachedPosts() async {
-    return await _api.readCachedPosts();
+    final posts = await _api.readCachedPosts();
+    return posts.map((p) => FeedItem.fromPost(p)).toList();
   }
 
   @override
   Future<void> cachePosts(List<FeedItem> posts) async {
-    final wpPosts = posts.whereType<Post>().toList();
+    final wpPosts = posts.map((e) => e.wpPost).whereType<Post>().toList();
     await _api.writeCachedPosts(wpPosts);
   }
 
