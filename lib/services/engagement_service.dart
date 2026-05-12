@@ -16,6 +16,7 @@ class EngagementService {
   Future<void> likePost(String userId, String postId, String? authorUid) async {
     final postRef = _db.collection(_submissionsCol).doc(postId);
     final likeRef = postRef.collection('likes').doc(userId);
+    final userLikeRef = _db.collection(_usersCol).doc(userId).collection('likes').doc(postId);
 
     await _db.runTransaction((transaction) async {
       final postDoc = await transaction.get(postRef);
@@ -24,11 +25,19 @@ class EngagementService {
       final likeDoc = await transaction.get(likeRef);
       if (likeDoc.exists) return;
 
+      // 1. Post-side subcollection (public)
       transaction.set(likeRef, {
         'userId': userId,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      // 2. User-side collection (private, for feed state)
+      transaction.set(userLikeRef, {
+        'postId': postId,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // 3. Increment counter
       transaction.update(postRef, {
         'likeCount': FieldValue.increment(1),
       });
@@ -46,6 +55,7 @@ class EngagementService {
   Future<void> unlikePost(String userId, String postId) async {
     final postRef = _db.collection(_submissionsCol).doc(postId);
     final likeRef = postRef.collection('likes').doc(userId);
+    final userLikeRef = _db.collection(_usersCol).doc(userId).collection('likes').doc(postId);
 
     await _db.runTransaction((transaction) async {
       final postDoc = await transaction.get(postRef);
@@ -55,10 +65,25 @@ class EngagementService {
       if (!likeDoc.exists) return;
 
       transaction.delete(likeRef);
+      transaction.delete(userLikeRef);
+      
       transaction.update(postRef, {
         'likeCount': FieldValue.increment(-1),
       });
     });
+  }
+
+  // ─── Queries ───────────────────────────────────────────────────────────────
+
+  /// Fetches the IDs of all posts liked by the user.
+  Future<Set<String>> getLikedPostIds(String userId) async {
+    try {
+      final snap = await _db.collection(_usersCol).doc(userId).collection('likes').get();
+      return snap.docs.map((doc) => doc.id).toSet();
+    } catch (e) {
+      debugPrint('Error fetching liked post IDs: $e');
+      return {};
+    }
   }
 
   // ─── Reshares (Restacks) ────────────────────────────────────────────────────

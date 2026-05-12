@@ -19,6 +19,7 @@ import 'package:romanticists_app/widgets/comment_bottom_sheet.dart';
 import 'package:romanticists_app/widgets/interaction_bar.dart';
 import 'package:romanticists_app/widgets/save_to_collection_sheet.dart';
 import 'package:romanticists_app/providers/bookmarks_provider.dart';
+import 'package:romanticists_app/providers/likes_provider.dart';
 import 'package:flutter/rendering.dart';
 
 /// Full-screen reader for a community [Submission] stored in Firestore.
@@ -509,19 +510,23 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
         ],
       ),
       // ── Interaction Bar ──────────────────────────────────────────────
-      Consumer<BookmarksProvider>(
-        builder: (context, bm, _) {
+      Consumer2<BookmarksProvider, LikesProvider>(
+        builder: (context, bm, lp, _) {
           final uniqueId = submission.wpId != null 
               ? submission.wpId.toString() 
               : submission.id!;
+          
+          final isLiked = lp.isLiked(submission.id!);
+          final isSaved = bm.isBookmarked(uniqueId);
+
           return InteractionBar(
             visible: _showInteractionBar,
             likeCount: submission.likeCount,
             commentCount: submission.commentCount,
             reshareCount: submission.reshareCount,
-            isLiked: submission.isLiked,
+            isLiked: isLiked,
             isReshared: submission.isReshared,
-            isSaved: bm.isBookmarked(uniqueId),
+            isSaved: isSaved,
             onLike: _handleLike,
             onComment: _handleComment,
             onReshare: _handleReshare,
@@ -573,36 +578,30 @@ void _handleSave() async {
   }
 }
 
-void _handleLike() async {
-final auth = context.read<AuthProvider>();
-if (!auth.isAuthenticated) {
-  _showLoginPrompt();
-  return;
-}
+  void _handleLike() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      _showLoginPrompt();
+      return;
+    }
 
-final service = EngagementService.instance;
-try {
-  if (_submission.isLiked) {
-    await service.unlikePost(auth.uid!, _submission.id!);
+    final lp = context.read<LikesProvider>();
+    final isCurrentlyLiked = lp.isLiked(_submission.id!);
+    
+    // Toggle via provider (Optimistic)
+    await lp.toggleLike(
+      postId: _submission.id!,
+      authorUid: _submission.userId,
+      currentLikedState: isCurrentlyLiked,
+    );
+
+    // Update local state for counter only (UI state is handled by provider)
     setState(() {
       _submission = _submission.copyWith(
-        isLiked: false,
-        likeCount: _submission.likeCount - 1,
-      );
-    });
-  } else {
-    await service.likePost(auth.uid!, _submission.id!, _submission.userId);
-    setState(() {
-      _submission = _submission.copyWith(
-        isLiked: true,
-        likeCount: _submission.likeCount + 1,
+        likeCount: _submission.likeCount + (isCurrentlyLiked ? -1 : 1),
       );
     });
   }
-} catch (e) {
-  debugPrint('Like error: $e');
-}
-}
 
 void _handleReshare() async {
 final auth = context.read<AuthProvider>();

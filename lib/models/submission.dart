@@ -146,6 +146,8 @@ class Submission {
         'viewCount': viewCount,
       };
 
+  Map<String, dynamic> toMap() => toJson();
+
   Submission copyWith({
     String? id,
     String? userId,

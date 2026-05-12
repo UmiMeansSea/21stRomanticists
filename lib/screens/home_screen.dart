@@ -154,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   selected: provider.selectedCategory?.id == proseCat.id && !provider.filterAnonymous && provider.selectedTag == null,
                   onTap: () {
                     Navigator.pop(context);
-                    provider.selectCategory(proseCat.id == -1 ? null : proseCat);
+                    provider.setFilter('Prose');
                   },
                 ),
                 _buildDrawerItem(
@@ -163,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   selected: provider.selectedCategory?.id == poemsCat.id && !provider.filterAnonymous && provider.selectedTag == null,
                   onTap: () {
                     Navigator.pop(context);
-                    provider.selectCategory(poemsCat.id == -1 ? null : poemsCat);
+                    provider.setFilter('Poems');
                   },
                 ),
                 _buildDrawerItem(
@@ -214,7 +214,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                         onChanged: (tag) {
                           Navigator.pop(context);
-                          provider.selectTag(tag);
+                          if (tag != null) {
+                            provider.setFilter(tag);
+                          } else {
+                            provider.setFilter('All'); // or clear filter
+                          }
                         },
                       ),
                     ),

@@ -25,7 +25,9 @@ List<Post> _parsePosts(String body) {
       .map((item) {
         try {
           return Post.fromJson(item as Map<String, dynamic>);
-        } catch (_) {
+        } catch (e, stack) {
+          debugPrint('WP Parsing Error for item ID ${item is Map ? item['id'] : 'unknown'}: $e');
+          debugPrint('Stacktrace: $stack');
           return null;
         }
       })

@@ -49,12 +49,10 @@ service cloud.firestore {
       //   - Title, content, userId, status — all immutable by non-owners.
       allow update: if request.auth != null && (
 
-        // Branch 1: owner edits their draft content
+        // Branch 1: owner updates their own content
         (
           resource.data.userId == request.auth.uid
-          && resource.data.status == 'draft'
           && request.resource.data.userId == resource.data.userId   // no ownership transfer
-          && request.resource.data.status == 'draft'               // no self-approving
         )
 
         // Branch 2: engagement counter increments on approved posts
@@ -101,6 +99,10 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == userId;
 
       match /bookmarks/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /likes/{docId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
 

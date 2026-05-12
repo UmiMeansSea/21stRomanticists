@@ -50,6 +50,7 @@ class PostsProvider extends ChangeNotifier {
   bool _filterAnonymous = false;
   String? _selectedTag;
   List<String> _wpTags = [];
+  String? _activeFilter; // New state for sidebar/tag filtering
 
   // [New State for Navigation]
   int _scrollToTopCounter = 0;
@@ -92,11 +93,8 @@ class PostsProvider extends ChangeNotifier {
   void _addTag(Set<String> set, String tag) {
     if (tag.trim().isEmpty) return;
     final normalized = tag.trim();
-    // We want to keep original casing if possible, but unify by lowercase
-    // Check if a similar tag (case-insensitive) already exists
     final exists = set.any((t) => t.toLowerCase() == normalized.toLowerCase());
     if (!exists) {
-      // Capitalize first letter for display consistency if it's all lowercase
       final display = (normalized == normalized.toLowerCase() && normalized.length > 1)
         ? normalized[0].toUpperCase() + normalized.substring(1)
         : normalized;
@@ -106,59 +104,69 @@ class PostsProvider extends ChangeNotifier {
 
   /// Merged, sorted feed of WP posts + community submissions.
   List<FeedItem> get feedItems {
-    // When searching, show both
+    // 1. Combine all sources into one master list
+    final allItems = [
+      ..._posts.map((p) => FeedItem.fromPost(p, categoryLabel: _catLabel(p))),
+      ..._submissions.map((s) => FeedItem.fromSubmission(s)),
+    ];
+
+    // 2. Apply search filter if active
     if (_searchQuery.isNotEmpty) {
-      final wpItems = _posts.map((p) => FeedItem.fromPost(p, categoryLabel: _catLabel(p))).toList();
-      // Only show submissions if they match search (client-side filter for now)
-      final subItems = _submissions
-          .where((s) => s.title.toLowerCase().contains(_searchQuery.toLowerCase()))
-          .map((s) => FeedItem.fromSubmission(s))
-          .toList();
-      final merged = [...wpItems, ...subItems];
-      _sortFeed(merged);
-      return merged;
+      final filtered = allItems.where((item) {
+        return item.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+               item.authorName.toLowerCase().contains(_searchQuery.toLowerCase());
+      }).toList();
+      _sortFeed(filtered);
+      return filtered;
     }
 
-    // Identify which WP IDs are already in Firestore to avoid duplicates
+    // 3. Apply Sidebar/Tag filter if active (New activeFilter state)
+    if (_activeFilter != null) {
+      final filtered = allItems.where((item) {
+        final normalizedFilter = _activeFilter!.toLowerCase();
+        
+        // Match by category label
+        final categoryMatch = item.categoryLabel.toLowerCase() == normalizedFilter;
+        
+        // Match by tags
+        final tagMatch = item.tags.any((t) => t.toLowerCase() == normalizedFilter);
+        
+        // Special case for 'Poetry' mapping to 'Poems'
+        final poetryMatch = (normalizedFilter == 'poetry' || normalizedFilter == 'poems') && 
+                           (item.categoryLabel.toLowerCase() == 'poems' || item.categoryLabel.toLowerCase() == 'poetry');
+
+        return categoryMatch || tagMatch || poetryMatch;
+      }).toList();
+      _sortFeed(filtered);
+      return filtered;
+    }
+
+    // 4. Fallback to existing manual filters (Category chips / Anonymous toggle)
     final migratedWpIds = _submissions
         .where((s) => s.wpId != null)
         .map((s) => s.wpId!)
         .toSet();
     
-    // 1. Map WordPress posts to FeedItems
     final wpItems = _posts
         .where((p) => !migratedWpIds.contains(p.id))
         .where((p) {
-          // Filter by Anonymous (WP posts are never anonymous in the submission sense)
           if (_filterAnonymous) return false;
-          
-          // Filter by Tag
           if (_selectedTag != null) {
             final normalizedTag = _selectedTag!.toLowerCase();
             return p.tagNames.any((t) => t.toLowerCase() == normalizedTag);
           }
-          
-          // Filter by Category
           if (_selectedCategory == null || _selectedCategory!.id == 0) return true;
-          
-          // WP posts only show up in their specific categories
           return p.categories.contains(_selectedCategory!.id);
         })
         .map((p) => FeedItem.fromPost(p, categoryLabel: _catLabel(p)))
         .toList();
     
-    // 2. Map all Firestore submissions to FeedItems, filtering locally
     final subItems = _submissions.where((s) {
-      // 1. Filter by Anonymous
       if (_filterAnonymous && !s.isAnonymous) return false;
-
-      // 2. Filter by Tag
       if (_selectedTag != null) {
         final normalizedTag = _selectedTag!.toLowerCase();
         if (!s.tags.any((t) => t.toLowerCase() == normalizedTag)) return false;
       }
-
-      // 3. Filter by Category
       if (_selectedCategory == null || _selectedCategory!.id == 0) return true;
       
       final subCat = s.category.label.toLowerCase();
@@ -260,12 +268,12 @@ class PostsProvider extends ChangeNotifier {
       _status = PostsStatus.loading;
       notifyListeners();
     }
-    await _revalidateWpPosts();
+    await _fetchWpPosts(); // Use renamed method for Bug 1
   }
 
   /// Fetches fresh WP posts from the network (page 1).
-  /// Compares with current cache; if new posts exist, inserts them at the top.
-  Future<void> _revalidateWpPosts() async {
+  /// Renamed from _revalidateWpPosts to match architectural requirement.
+  Future<void> _fetchWpPosts() async {
     if (_isFetchingFresh) return;
     _isFetchingFresh = true;
     try {
@@ -277,29 +285,22 @@ class PostsProvider extends ChangeNotifier {
         return;
       }
 
-      // ── STEP C: Compare fresh vs. cached ─────────────────────────────────
-      // Find posts whose IDs are NOT in the current local list.
+      // Merge fresh items into local list
       final existingIds = _posts.map((p) => p.id).toSet();
       final newPosts = fresh.map((e) => e.wpPost).whereType<Post>()
           .where((p) => !existingIds.contains(p.id)).toList();
 
       if (newPosts.isNotEmpty) {
-        // Inject new posts at the TOP of the feed.
         _posts = [...newPosts, ..._posts];
       } else {
-        // Even if no new posts, update existing ones with fresh data
-        // (e.g. updated titles, images from WP edits).
         final freshById = {for (final e in fresh) if (e.wpPost != null) e.wpPost!.id: e.wpPost!};
         _posts = _posts.map((p) => freshById[p.id] ?? p).cast<Post>().toList();
       }
 
-      // Overwrite disk cache with latest data.
       unawaited(wpRepository.cachePosts(fresh));
-
       _status = PostsStatus.success;
     } catch (e) {
-      debugPrint('WP revalidation failed: $e');
-      // Keep showing cached data; don't change status if we already have posts.
+      debugPrint('WP fetch failed: $e');
       if (_posts.isEmpty) _status = PostsStatus.failure;
     } finally {
       _isFetchingFresh = false;
@@ -426,7 +427,17 @@ class PostsProvider extends ChangeNotifier {
   /// Pull-to-refresh: show stale data, revalidate silently in background.
   Future<void> refresh() async {
     _currentPage = 1;
-    await Future.wait([_revalidateWpPosts(), _fetchSubmissions()]);
+    await Future.wait([_fetchWpPosts(), _fetchSubmissions()]);
+  }
+
+  void setFilter(String filter) {
+    _activeFilter = filter;
+    // Reset other specific filters when using the sidebar
+    _selectedCategory = null;
+    _selectedTag = null;
+    _filterAnonymous = false;
+    _searchQuery = '';
+    notifyListeners();
   }
 
   Future<void> loadMore() async {

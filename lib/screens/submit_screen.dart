@@ -122,42 +122,51 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
 
     final auth = context.read<AuthProvider>();
     final uid = auth.user?.uid;
-    if (uid == null) return;
+    if (uid == null) {
+      _showSnack('You must be logged in to publish.', isError: true);
+      return;
+    }
 
     setState(() => _submitting = true);
 
-    final submission = Submission(
-      id: _currentSubmissionId,
-      userId: uid,
-      authorName: _isAnonymous
-          ? 'Anonymous'
-          : (auth.user?.displayName ?? _authorController.text.trim()),
-      title: _titleController.text.trim(),
-      category: _category,
-      content: _contentController.text.trim(),
-      isAnonymous: _isAnonymous,
-      submittedAt: DateTime.now(),
-      status: SubmissionStatus.approved,
-      tags: List.from(_tags),
-      imageUrl: widget.existingSubmission?.imageUrl,
-    );
+    try {
+      final submission = Submission(
+        id: _currentSubmissionId,
+        userId: uid,
+        authorName: _isAnonymous
+            ? 'Anonymous'
+            : (auth.user?.displayName ?? _authorController.text.trim()),
+        title: _titleController.text.trim(),
+        category: _category,
+        content: _contentController.text.trim(),
+        isAnonymous: _isAnonymous,
+        submittedAt: DateTime.now(),
+        status: SubmissionStatus.approved,
+        tags: List.from(_tags),
+        imageUrl: widget.existingSubmission?.imageUrl,
+      );
 
-    final repo = context.read<IPostRepository>();
+      // [FIX] Await the initial setup to catch early errors (like model mapping or auth)
+      await context.read<UploadProvider>().startUpload(
+        uid: uid,
+        submission: submission,
+        imageFile: _imageFile,
+        isUpdate: _currentSubmissionId != null,
+      );
 
-    // Give it to the UploadProvider and leave immediately
-    context.read<UploadProvider>().startUpload(
-      uid: uid,
-      submission: submission,
-      imageFile: _imageFile,
-      isUpdate: _currentSubmissionId != null,
-    );
-
-    _hasPublished = true;
-    context.read<PostsProvider>().addSubmissionLocally(submission);
-    context.read<PostsProvider>().refresh();
-    
-    _reset();
-    Navigator.pop(context);
+      _hasPublished = true;
+      if (mounted) {
+        context.read<PostsProvider>().addSubmissionLocally(submission);
+        context.read<PostsProvider>().refresh();
+        _showSnack('Work published successfully.');
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        _showSnack('Publishing failed: $e', isError: true);
+      }
+    }
   }
 
   Future<void> _saveDraft({bool silent = false}) async {
@@ -244,13 +253,14 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
     final auth = context.watch<AuthProvider>();
 
     return PopScope(
-      canPop: false,
+      canPop: _hasPublished || !_hasContent(),
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        if (!_hasPublished && _hasContent()) {
-          await _saveDraft();
-        }
-        if (mounted) Navigator.pop(context);
+        
+        // If we reach here, it means we have content and haven't published
+        // Show a confirmation or auto-save
+        await _saveDraft();
+        if (mounted) Navigator.of(context).pop();
       },
       child: Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
