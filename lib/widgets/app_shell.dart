@@ -210,7 +210,7 @@ class _UploadOverlay extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: isError ? AppColors.onErrorContainer : Colors.white,
+                    color: isError ? AppColors.error : Colors.white,
                   ),
                 ),
               ),
@@ -220,7 +220,7 @@ class _UploadOverlay extends StatelessWidget {
                   child: Icon(
                     Icons.close,
                     size: 18,
-                    color: isError ? AppColors.onErrorContainer : Colors.white70,
+                    color: isError ? AppColors.error : Colors.white70,
                   ),
                 ),
             ],

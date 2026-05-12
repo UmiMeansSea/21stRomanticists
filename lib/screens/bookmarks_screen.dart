@@ -46,9 +46,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> with SingleTickerProv
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         automaticallyImplyLeading: false,
         title: Text(
@@ -56,14 +56,14 @@ class _BookmarksScreenState extends State<BookmarksScreen> with SingleTickerProv
           style: GoogleFonts.ebGaramond(
             fontSize: 22,
             fontWeight: FontWeight.w500,
-            color: AppColors.primary,
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: AppColors.primary,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.onSurfaceVariant,
+          indicatorColor: Theme.of(context).colorScheme.primary,
+          labelColor: Theme.of(context).colorScheme.primary,
+          unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
           labelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
           tabs: const [
             Tab(text: 'All Posts'),
@@ -88,7 +88,7 @@ class _AllPostsTab extends StatelessWidget {
     return Consumer<BookmarksProvider>(
       builder: (context, bm, _) {
         if (bm.status == BookmarksStatus.loading || bm.status == BookmarksStatus.initial) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2));
+          return const Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary, strokeWidth: 2));
         }
         if (bm.status == BookmarksStatus.failure) {
           return _ErrorState(message: bm.errorMessage ?? 'Could not load bookmarks.');
@@ -126,13 +126,13 @@ class _AllPostsTab extends StatelessWidget {
                   }
                 },
                 child: Container(
-                  color: AppColors.surfaceContainerHigh,
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
                   child: item.imageUrl != null && item.imageUrl!.isNotEmpty
                       ? CachedNetworkImage(
                           imageUrl: item.imageUrl!,
                           fit: BoxFit.cover,
                           placeholder: (_, __) => const SizedBox(),
-                          errorWidget: (_, __, ___) => const Center(child: Icon(Icons.article, color: AppColors.outline)),
+                          errorWidget: (_, __, ___) => const Center(child: Icon(Icons.article, color: Theme.of(context).colorScheme.outline)),
                         )
                       : Center(
                           child: Padding(
@@ -142,7 +142,7 @@ class _AllPostsTab extends StatelessWidget {
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.ebGaramond(fontSize: 12, color: AppColors.onSurfaceVariant),
+                              style: GoogleFonts.ebGaramond(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                             ),
                           ),
                         ),
@@ -165,7 +165,7 @@ class _CollectionsTab extends StatelessWidget {
     return Consumer<CollectionsProvider>(
       builder: (context, cols, _) {
         if (cols.status == CollectionsStatus.loading || cols.status == CollectionsStatus.initial) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2));
+          return const Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary, strokeWidth: 2));
         }
         if (cols.status == CollectionsStatus.failure) {
           return _ErrorState(message: cols.errorMessage ?? 'Could not load collections.');
@@ -175,11 +175,11 @@ class _CollectionsTab extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.collections_bookmark_outlined, size: 64, color: AppColors.outline),
+                Icon(Icons.collections_bookmark_outlined, size: 64, color: Theme.of(context).colorScheme.outline),
                 const SizedBox(height: 16),
                 Text(
                   'No collections yet',
-                  style: GoogleFonts.ebGaramond(fontSize: 22, color: AppColors.onSurface),
+                  style: GoogleFonts.ebGaramond(fontSize: 22, color: Theme.of(context).colorScheme.onSurface),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -187,7 +187,7 @@ class _CollectionsTab extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: GoogleFonts.literata(
                     fontSize: 14,
-                    color: AppColors.onSurfaceVariant,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontStyle: FontStyle.italic,
                     height: 1.6,
                   ),
@@ -220,14 +220,14 @@ class _CollectionsTab extends StatelessWidget {
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
-                          color: AppColors.surfaceContainerHigh,
+                          color: Theme.of(context).colorScheme.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(12),
                           image: col.coverImageUrl != null && col.coverImageUrl!.isNotEmpty
                               ? DecorationImage(image: CachedNetworkImageProvider(col.coverImageUrl!), fit: BoxFit.cover)
                               : null,
                         ),
                         child: col.coverImageUrl == null || col.coverImageUrl!.isEmpty
-                            ? const Center(child: Icon(Icons.collections_bookmark_outlined, size: 40, color: AppColors.outline))
+                            ? const Center(child: Icon(Icons.collections_bookmark_outlined, size: 40, color: Theme.of(context).colorScheme.outline))
                             : null,
                       ),
                     ),
@@ -240,7 +240,7 @@ class _CollectionsTab extends StatelessWidget {
                     ),
                     Text(
                       '${col.postCount} post${col.postCount == 1 ? '' : 's'}',
-                      style: GoogleFonts.inter(fontSize: 12, color: AppColors.outline),
+                      style: GoogleFonts.inter(fontSize: 12, color: Theme.of(context).colorScheme.outline),
                     ),
                   ],
                 ),
@@ -263,11 +263,11 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.bookmark_border_outlined, size: 64, color: AppColors.outline),
+          Icon(Icons.bookmark_border_outlined, size: 64, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 16),
           Text(
             'Nothing saved yet',
-            style: GoogleFonts.ebGaramond(fontSize: 22, color: AppColors.onSurface),
+            style: GoogleFonts.ebGaramond(fontSize: 22, color: Theme.of(context).colorScheme.onSurface),
           ),
           const SizedBox(height: 8),
           Text(
@@ -275,19 +275,19 @@ class _EmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: GoogleFonts.literata(
               fontSize: 14,
-              color: AppColors.onSurfaceVariant,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontStyle: FontStyle.italic,
               height: 1.6,
             ),
           ),
           const SizedBox(height: 24),
           OutlinedButton.icon(
-            icon: const Icon(Icons.home_outlined, size: 16),
-            label: const Text('Browse Posts'),
+            icon: Icon(Icons.home_outlined, size: 16),
+            label: Text('Browse Posts'),
             onPressed: () => context.go('/'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              side: const BorderSide(color: AppColors.primary),
+              foregroundColor: Theme.of(context).colorScheme.primary,
+              side: const BorderSide(color: Theme.of(context).colorScheme.primary),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
             ),
           ),
@@ -308,14 +308,14 @@ class _ErrorState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.cloud_off_outlined, size: 56, color: AppColors.outline),
+          Icon(Icons.cloud_off_outlined, size: 56, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 16),
           Text(
             message,
             textAlign: TextAlign.center,
             style: GoogleFonts.literata(
               fontSize: 14,
-              color: AppColors.onSurfaceVariant,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontStyle: FontStyle.italic,
             ),
           ),
@@ -329,16 +329,16 @@ class _GuestPrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         automaticallyImplyLeading: false,
         title: Text(
           'Saved',
           style: GoogleFonts.ebGaramond(
             fontSize: 22,
             fontWeight: FontWeight.w500,
-            color: AppColors.primary,
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
       ),
@@ -348,7 +348,7 @@ class _GuestPrompt extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.bookmark_border_outlined, size: 64, color: AppColors.outline),
+              Icon(Icons.bookmark_border_outlined, size: 64, color: Theme.of(context).colorScheme.outline),
               const SizedBox(height: 20),
               Text(
                 'Sign in to save posts',
@@ -360,7 +360,7 @@ class _GuestPrompt extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: GoogleFonts.literata(
                   fontSize: 14,
-                  color: AppColors.onSurfaceVariant,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontStyle: FontStyle.italic,
                   height: 1.6,
                 ),
@@ -371,8 +371,8 @@ class _GuestPrompt extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () => context.push('/login'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.onPrimary,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
                   ),

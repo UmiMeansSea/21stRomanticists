@@ -50,7 +50,7 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Color(0xFF1B1C19),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -94,7 +94,7 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
               stream: EngagementService.instance.getComments(widget.postId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+                  return Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary));
                 }
                 
                 final comments = snapshot.data ?? [];
@@ -168,8 +168,8 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
                 IconButton(
                   onPressed: _isSubmitting ? null : _submitComment,
                   icon: _isSubmitting 
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
-                    : const Icon(Icons.send_rounded, color: AppColors.primary),
+                    ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.primary))
+                    : Icon(Icons.send_rounded, color: Theme.of(context).colorScheme.primary),
                 ),
               ],
             ),
@@ -192,10 +192,10 @@ class _CommentItem extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 16,
-          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+          backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
           backgroundImage: comment.authorPhotoUrl != null ? NetworkImage(comment.authorPhotoUrl!) : null,
           child: comment.authorPhotoUrl == null 
-            ? Text(comment.authorName[0].toUpperCase(), style: const TextStyle(fontSize: 12, color: AppColors.primary)) 
+            ? Text(comment.authorName[0].toUpperCase(), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary)) 
             : null,
         ),
         const SizedBox(width: 12),

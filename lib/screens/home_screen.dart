@@ -126,12 +126,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     return Drawer(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       child: Column(
         children: [
           DrawerHeader(
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.outlineVariant, width: 0.5)),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant, width: 0.5)),
             ),
             child: Center(
               child: Text(
@@ -139,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: GoogleFonts.ebGaramond(
                   fontSize: 28,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.primary,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ),
@@ -184,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
-                      color: AppColors.onSurface, // Improved visibility
+                      color: Theme.of(context).colorScheme.onSurface, // Improved visibility
                     ),
                   ),
                 ),
@@ -194,14 +194,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.outlineVariant),
+                      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         isExpanded: true,
                         value: provider.selectedTag,
                         hint: Text('Select a tag', style: GoogleFonts.inter(fontSize: 14)),
-                        dropdownColor: AppColors.background,
+                        dropdownColor: Theme.of(context).colorScheme.surface,
                         items: [
                           DropdownMenuItem<String>(
                             value: null,
@@ -227,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(20),
             child: Text(
               'v1.0.4',
-              style: GoogleFonts.inter(fontSize: 10, color: AppColors.outline),
+              style: GoogleFonts.inter(fontSize: 10, color: Theme.of(context).colorScheme.outline),
             ),
           ),
         ],
@@ -242,17 +242,17 @@ class _HomeScreenState extends State<HomeScreen> {
     required VoidCallback onTap,
   }) {
     return ListTile(
-      leading: Icon(icon, color: selected ? AppColors.primary : AppColors.onSurfaceVariant),
+      leading: Icon(icon, color: selected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant),
       title: Text(
         label,
         style: GoogleFonts.inter(
           fontSize: 15,
           fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-          color: selected ? AppColors.primary : AppColors.onSurface,
+          color: selected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
         ),
       ),
       selected: selected,
-      selectedTileColor: AppColors.primary.withValues(alpha: 0.05),
+      selectedTileColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
       onTap: onTap,
     );
   }
@@ -263,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Consumer<PostsProvider>(
       builder: (context, provider, _) {
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           drawer: _buildDrawer(context, provider),
           body: RefreshIndicator(
             onRefresh: provider.refresh,
@@ -289,12 +289,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return SliverAppBar(
       pinned: true,
       floating: false,
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       elevation: 0,
-      shadowColor: AppColors.outlineVariant.withValues(alpha: 0.3),
+      shadowColor: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
       leading: Builder(
         builder: (context) => IconButton(
-          icon: const Icon(Icons.menu, color: AppColors.primary),
+          icon: Icon(Icons.menu, color: Theme.of(context).colorScheme.primary),
           onPressed: () => Scaffold.of(context).openDrawer(),
           tooltip: 'Menu',
         ),
@@ -312,7 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: GoogleFonts.ebGaramond(
                   fontSize: 22,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.primary,
+                  color: Theme.of(context).colorScheme.primary,
                   letterSpacing: -0.3,
                 ),
               ),
@@ -320,12 +320,12 @@ class _HomeScreenState extends State<HomeScreen> {
       actions: [
         if (!_searchOpen)
           IconButton(
-            icon: const Icon(Icons.search, color: AppColors.primary),
+            icon: Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
             onPressed: _toggleSearch,
             tooltip: 'Search',
           ),
         IconButton(
-          icon: const Icon(Icons.sync_outlined, color: AppColors.primary),
+          icon: Icon(Icons.sync_outlined, color: Theme.of(context).colorScheme.primary),
           onPressed: () {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Starting WordPress migration...')),
@@ -335,7 +335,7 @@ class _HomeScreenState extends State<HomeScreen> {
           tooltip: 'Sync with WordPress',
         ),
         IconButton(
-          icon: const Icon(Icons.settings_outlined, color: AppColors.primary),
+          icon: Icon(Icons.settings_outlined, color: Theme.of(context).colorScheme.primary),
           onPressed: () => context.push('/settings'),
           tooltip: 'Settings',
         ),
@@ -414,7 +414,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.4,
-                color: AppColors.outline,
+                color: Theme.of(context).colorScheme.outline,
               ),
             ),
           ),
@@ -433,19 +433,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 leading: CircleAvatar(
                   radius: 22,
-                  backgroundColor: AppColors.surfaceContainerHigh,
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
                   backgroundImage: photo != null ? NetworkImage(photo) : null,
                   child: photo == null
                       ? Text(name[0].toUpperCase(),
                           style: GoogleFonts.ebGaramond(
-                              fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary))
+                              fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary))
                       : null,
                 ),
                 title: Text(name, style: GoogleFonts.ebGaramond(fontSize: 16, fontWeight: FontWeight.w600)),
                 subtitle: username.isNotEmpty
-                    ? Text('@$username', style: GoogleFonts.inter(fontSize: 12, color: AppColors.outline))
+                    ? Text('@$username', style: GoogleFonts.inter(fontSize: 12, color: Theme.of(context).colorScheme.outline))
                     : null,
-                trailing: const Icon(Icons.chevron_right, color: AppColors.outline),
+                trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
                 onTap: () => context.push('/user/$uid?name=$name'),
               );
             },
@@ -561,12 +561,12 @@ class _SearchField extends StatelessWidget {
       controller: controller,
       autofocus: true,
       onChanged: onChanged,
-      style: GoogleFonts.literata(fontSize: 16, color: AppColors.onSurface),
+      style: GoogleFonts.literata(fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
       decoration: InputDecoration(
         hintText: 'Search poems, prose…',
         hintStyle: GoogleFonts.literata(
           fontSize: 16,
-          color: AppColors.onSurfaceVariant,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
           fontStyle: FontStyle.italic,
         ),
         border: InputBorder.none,
@@ -599,7 +599,7 @@ class _CategoryTabRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.background,
+      color: Theme.of(context).colorScheme.surface,
       child: Column(
         children: [
           SingleChildScrollView(
@@ -659,7 +659,7 @@ class _ListFooter extends StatelessWidget {
             style: GoogleFonts.ebGaramond(
               fontSize: 16,
               fontStyle: FontStyle.italic,
-              color: AppColors.outline,
+              color: Theme.of(context).colorScheme.outline,
               letterSpacing: 1,
             ),
           ),
@@ -706,7 +706,7 @@ class _ErrorView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.cloud_off_outlined,
-                size: 56, color: AppColors.outline.withValues(alpha: 0.5)),
+                size: 56, color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
             const SizedBox(height: 20),
             Text(
               'Unable to load posts',
@@ -748,7 +748,7 @@ class _EmptyView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.auto_stories_outlined,
-                size: 56, color: AppColors.outline.withValues(alpha: 0.4)),
+                size: 56, color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.4)),
             const SizedBox(height: 20),
             Text(
               query.isNotEmpty

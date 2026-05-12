@@ -156,17 +156,17 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     final bio = _userInfo?['bio'] ?? '"A silent observer of beauty, finding eternity in a moment of ink."';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : CustomScrollView(
               slivers: [
                 SliverAppBar(
                   pinned: true,
-                  backgroundColor: AppColors.background,
+                  backgroundColor: Theme.of(context).colorScheme.surface,
                   elevation: 0,
                   leading: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+                    icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.primary),
                     onPressed: () => Navigator.pop(context),
                   ),
                   centerTitle: true,
@@ -175,7 +175,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                     style: GoogleFonts.ebGaramond(
                       fontSize: 20,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.primary,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ),
@@ -194,11 +194,11 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                                   image: NetworkImage(photoUrl),
                                   fit: BoxFit.cover)
                               : null,
-                          color: AppColors.surfaceContainerHigh,
+                          color: Theme.of(context).colorScheme.surfaceContainerHigh,
                         ),
                         child: photoUrl == null
-                            ? const Icon(Icons.person,
-                                size: 50, color: AppColors.outline)
+                            ? Icon(Icons.person,
+                                size: 50, color: Theme.of(context).colorScheme.outline)
                             : null,
                       ),
                       const SizedBox(height: 20),
@@ -207,7 +207,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                         style: GoogleFonts.ebGaramond(
                           fontSize: 28,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.onSurface,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -218,7 +218,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                           textAlign: TextAlign.center,
                           style: GoogleFonts.literata(
                             fontSize: 13,
-                            color: AppColors.onSurfaceVariant,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontStyle: FontStyle.italic,
                             height: 1.5,
                           ),
@@ -234,13 +234,13 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                             onPressed: _toggleSubscribe,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _isSubscribed 
-                                  ? AppColors.background 
-                                  : AppColors.onSurface,
+                                  ? Theme.of(context).colorScheme.surface 
+                                  : Theme.of(context).colorScheme.onSurface,
                               foregroundColor: _isSubscribed 
-                                  ? AppColors.onSurface 
-                                  : AppColors.background,
+                                  ? Theme.of(context).colorScheme.onSurface 
+                                  : Theme.of(context).colorScheme.surface,
                               side: _isSubscribed 
-                                  ? const BorderSide(color: AppColors.outline)
+                                  ? const BorderSide(color: Theme.of(context).colorScheme.outline)
                                   : BorderSide.none,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               elevation: 0,
@@ -320,7 +320,7 @@ class _StatItem extends StatelessWidget {
         Text(
           label,
           style: GoogleFonts.inter(
-              fontSize: 10, color: AppColors.outline, letterSpacing: 0.5),
+              fontSize: 10, color: Theme.of(context).colorScheme.outline, letterSpacing: 0.5),
         ),
       ],
     );
@@ -339,14 +339,14 @@ class _GridCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLow,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(date, style: GoogleFonts.inter(fontSize: 9, color: AppColors.outline)),
+            Text(date, style: GoogleFonts.inter(fontSize: 9, color: Theme.of(context).colorScheme.outline)),
             const SizedBox(height: 6),
             Text(
               sub.title,
@@ -360,7 +360,7 @@ class _GridCard extends StatelessWidget {
                 sub.content,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.literata(fontSize: 11, color: AppColors.onSurfaceVariant),
+                style: GoogleFonts.literata(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ),
           ],

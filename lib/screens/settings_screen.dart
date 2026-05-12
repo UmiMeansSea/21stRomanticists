@@ -45,7 +45,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
         title: Text(
@@ -71,15 +71,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerLow,
-                  border: Border.all(color: AppColors.outlineVariant, width: 0.4),
+                  color: Theme.of(context).colorScheme.surfaceContainer,
+                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 24,
-                      backgroundColor: AppColors.secondary,
+                      backgroundColor: Theme.of(context).colorScheme.secondary,
                       backgroundImage: user.photoURL != null
                           ? NetworkImage(user.photoURL!)
                           : null,
@@ -108,14 +108,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               style: GoogleFonts.ebGaramond(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w500,
-                                color: AppColors.onSurface,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                           Text(
                             user.email ?? '',
                             style: GoogleFonts.inter(
                               fontSize: 12,
-                              color: AppColors.onSurfaceVariant,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -145,8 +145,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsTile(
               icon: Icons.logout_outlined,
               label: 'Sign Out',
-              labelColor: AppColors.error,
-              iconColor: AppColors.error,
+              labelColor: Theme.of(context).colorScheme.error,
+              iconColor: Theme.of(context).colorScheme.error,
               onTap: () => _confirmSignOut(context, auth),
             ),
           ] else ...[
@@ -211,7 +211,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _version,
               style: GoogleFonts.inter(
                 fontSize: 12,
-                color: AppColors.onSurfaceVariant,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -237,7 +237,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: GoogleFonts.ebGaramond(
                 fontSize: 14,
                 fontStyle: FontStyle.italic,
-                color: AppColors.outline,
+                color: Theme.of(context).colorScheme.outline,
                 letterSpacing: 0.3,
               ),
             ),
@@ -272,7 +272,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
             child: Text('Sign Out',
                 style: GoogleFonts.inter(
-                    color: AppColors.error, fontWeight: FontWeight.w600)),
+                    color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.w600)),
           ),
         ],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -297,7 +297,7 @@ class _SectionHeader extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.2,
-          color: AppColors.onSurfaceVariant,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     );
@@ -326,13 +326,13 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, size: 20, color: iconColor ?? AppColors.onSurfaceVariant),
+      leading: Icon(icon, size: 20, color: iconColor ?? Theme.of(context).colorScheme.onSurfaceVariant),
       title: Text(
         label,
         style: GoogleFonts.inter(
           fontSize: 14,
           fontWeight: FontWeight.w500,
-          color: labelColor ?? AppColors.onSurface,
+          color: labelColor ?? Theme.of(context).colorScheme.onSurface,
         ),
       ),
       subtitle: subtitle != null
@@ -340,15 +340,15 @@ class _SettingsTile extends StatelessWidget {
               subtitle!,
               style: GoogleFonts.literata(
                 fontSize: 12,
-                color: AppColors.onSurfaceVariant,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontStyle: FontStyle.italic,
               ),
             )
           : null,
       trailing: trailing ??
           (onTap != null
-              ? const Icon(Icons.chevron_right, size: 18,
-                  color: AppColors.outline)
+              ? Icon(Icons.chevron_right, size: 18,
+                  color: Theme.of(context).colorScheme.outline)
               : null),
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),

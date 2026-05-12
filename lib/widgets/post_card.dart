@@ -115,7 +115,7 @@ class _FeaturedCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 24),
-                  const Divider(height: 1, color: AppColors.surfaceBright),
+                  Divider(height: 1, color: Theme.of(context).colorScheme.surfaceContainerHigh),
                   const SizedBox(height: 20),
                   Row(
                     children: [
@@ -214,7 +214,7 @@ class _WpEditorialLayout extends StatelessWidget {
                 maxLines: 2, overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 16),
-              const Divider(height: 1, color: AppColors.surfaceBright),
+              Divider(height: 1, color: Theme.of(context).colorScheme.surfaceContainerHigh),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -253,7 +253,7 @@ class _WpTweetLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accentColor = isDark ? AppColors.romanticPrimary : AppColors.primary;
+    final accentColor = Theme.of(context).colorScheme.primary;
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -299,7 +299,7 @@ class _WpTweetLayout extends StatelessWidget {
                   const SizedBox(height: 16),
                   _DateChip(date: post.publishedAt, category: categoryLabel),
                   const SizedBox(height: 12),
-                  const Divider(height: 1, color: AppColors.surfaceBright),
+                  Divider(height: 1, color: Theme.of(context).colorScheme.surfaceContainerHigh),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -350,10 +350,10 @@ class _CardShellState extends State<_CardShell> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final shadowColor = isDark 
         ? Colors.black.withValues(alpha: _hovered ? 0.6 : 0.4)
-        : AppColors.primary.withValues(alpha: _hovered ? 0.15 : 0.08);
+        : Theme.of(context).colorScheme.primary.withValues(alpha: _hovered ? 0.15 : 0.08);
     
     final glowColor = isDark 
-        ? AppColors.romanticPrimary.withValues(alpha: _hovered ? 0.1 : 0)
+        ? Theme.of(context).colorScheme.primary.withValues(alpha: _hovered ? 0.1 : 0)
         : Colors.white.withValues(alpha: _hovered ? 0.2 : 0);
 
     return RepaintBoundary(
@@ -522,7 +522,7 @@ class _DateChip extends StatelessWidget {
         fontSize: 11,
         fontWeight: FontWeight.w500,
         letterSpacing: 0.5,
-        color: AppColors.secondary,
+        color: Theme.of(context).colorScheme.secondary,
         fontStyle: FontStyle.italic,
       ),
     );
@@ -570,7 +570,7 @@ class _AuthorRow extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: isDark ? AppColors.romanticPrimary.withValues(alpha: 0.3) : AppColors.primary.withValues(alpha: 0.1),
+                color: isDark ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.3) : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                 width: 2,
               ),
               boxShadow: [
@@ -583,13 +583,13 @@ class _AuthorRow extends StatelessWidget {
             ),
             child: CircleAvatar(
               radius: small ? 16 : 24,
-              backgroundColor: isDark ? AppColors.romanticSurfaceContainer : AppColors.surfaceContainerHigh,
+              backgroundColor: isDark ? Theme.of(context).colorScheme.surfaceContainer : Theme.of(context).colorScheme.surfaceContainerHigh,
               backgroundImage: (!isAnonymous && avatarUrl != null) ? CachedNetworkImageProvider(avatarUrl, maxWidth: 150, maxHeight: 150) : null,
               child: (isAnonymous || avatarUrl == null)
                   ? Icon(
                       isAnonymous ? Icons.person_outline : Icons.person,
                       size: small ? 18 : 28,
-                      color: isDark ? AppColors.romanticOnSurface : AppColors.primary,
+                      color: isDark ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.primary,
                     )
                   : null,
             ),
@@ -694,7 +694,7 @@ class _EngagementRow extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Sign in to like posts', style: GoogleFonts.literata(color: Colors.white)),
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -722,7 +722,7 @@ class _EngagementRow extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Sign in to reshare', style: GoogleFonts.literata(color: Colors.white)),
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -896,7 +896,7 @@ class _BookmarkButton extends StatelessWidget {
           child: Icon(
             saved ? Icons.bookmark : Icons.bookmark_border_rounded,
             size: size,
-            color: saved ? AppColors.primary : (floating ? Colors.white : AppColors.onSurfaceVariant),
+            color: saved ? Theme.of(context).colorScheme.primary : (floating ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         );
 
@@ -917,7 +917,7 @@ class _BookmarkButton extends StatelessWidget {
                 SnackBar(
                   content: Text('Sign in to save posts.',
                       style: GoogleFonts.literata(color: Colors.white)),
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   behavior: SnackBarBehavior.floating,
                   action: SnackBarAction(
                     label: 'Sign In',
@@ -967,7 +967,7 @@ class _BookmarkButton extends StatelessWidget {
                 saved ? Icons.bookmark : Icons.bookmark_border_outlined,
                 key: ValueKey(saved),
                 size: size,
-                color: saved ? AppColors.primary : AppColors.onSurfaceVariant,
+                color: saved ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -995,7 +995,7 @@ class _MoreOptionsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_horiz),
+      icon: Icon(Icons.more_horiz),
       iconSize: 22,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 180),
@@ -1030,7 +1030,7 @@ class _MoreOptionsButton extends StatelessWidget {
               SnackBar(
                 content: Text('Subscribed to @$author'),
                 behavior: SnackBarBehavior.floating,
-                backgroundColor: AppColors.primary,
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             );
             try {
@@ -1057,7 +1057,7 @@ class _MoreOptionsButton extends StatelessWidget {
           value: 'share',
           child: Row(
             children: [
-              const Icon(Icons.share_outlined, size: 18),
+              Icon(Icons.share_outlined, size: 18),
               const SizedBox(width: 12),
               Text('Share Post', style: GoogleFonts.inter(fontSize: 14)),
             ],
@@ -1067,7 +1067,7 @@ class _MoreOptionsButton extends StatelessWidget {
           value: 'copy',
           child: Row(
             children: [
-              const Icon(Icons.copy_outlined, size: 18),
+              Icon(Icons.copy_outlined, size: 18),
               const SizedBox(width: 12),
               Text('Copy Link', style: GoogleFonts.inter(fontSize: 14)),
             ],
@@ -1077,7 +1077,7 @@ class _MoreOptionsButton extends StatelessWidget {
           value: 'subscribe',
           child: Row(
             children: [
-              const Icon(Icons.person_add_alt_1_outlined, size: 18),
+              Icon(Icons.person_add_alt_1_outlined, size: 18),
               const SizedBox(width: 12),
               Text('Subscribe', style: GoogleFonts.inter(fontSize: 14)),
             ],
@@ -1126,7 +1126,7 @@ class _ShareButton extends StatelessWidget {
       child: Icon(
         Icons.ios_share,
         size: size,
-        color: floating ? Colors.white : AppColors.onSurfaceVariant,
+        color: floating ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );
 
@@ -1197,7 +1197,7 @@ class _PostCardSkeletonState extends State<PostCardSkeleton>
         width: w,
         height: h,
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerHigh.withValues(alpha: _shimmer.value),
+          color: Theme.of(context).colorScheme.surfaceContainerHigh.withValues(alpha: _shimmer.value),
           borderRadius: BorderRadius.circular(2),
         ),
       ),
@@ -1208,7 +1208,7 @@ class _PostCardSkeletonState extends State<PostCardSkeleton>
   Widget build(BuildContext context) {
     if (widget.featured) {
       return Container(
-        color: AppColors.surfaceContainerLow,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1235,7 +1235,7 @@ class _PostCardSkeletonState extends State<PostCardSkeleton>
       );
     }
     return Container(
-      color: AppColors.surfaceContainerLow,
+      color: Theme.of(context).colorScheme.surfaceContainer,
       height: 120,
       child: Row(
         children: [
@@ -1282,7 +1282,7 @@ class CategoryChip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.surfaceContainerHigh,
+          color: selected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(2),
         ),
         child: Text(
@@ -1291,7 +1291,7 @@ class CategoryChip extends StatelessWidget {
             fontSize: 11,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.8,
-            color: selected ? AppColors.onPrimary : AppColors.onSurfaceVariant,
+            color: selected ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       ),
@@ -1418,7 +1418,7 @@ class _EditorialLayout extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 16),
-                    const Divider(height: 1, color: AppColors.surfaceBright),
+                    Divider(height: 1, color: Theme.of(context).colorScheme.surfaceContainerHigh),
                     const SizedBox(height: 12),
                     _BottomActionBar(item: item, isAnon: isAnon, hideAuthor: true),
                   ],
@@ -1441,7 +1441,7 @@ class _TweetLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accentColor = isDark ? AppColors.romanticPrimary : AppColors.primary;
+    final accentColor = Theme.of(context).colorScheme.primary;
 
     return IntrinsicHeight(
       child: Row(
@@ -1501,7 +1501,7 @@ class _TweetLayout extends StatelessWidget {
                         ],
                         _CommunityBadge(item.categoryLabel, item.publishedAt),
                         const SizedBox(height: 12),
-                        const Divider(height: 1, color: AppColors.surfaceBright),
+                        Divider(height: 1, color: Theme.of(context).colorScheme.surfaceContainerHigh),
                         const SizedBox(height: 12),
                         _BottomActionBar(item: item, isAnon: isAnon, hideAuthor: true),
                       ],
@@ -1586,13 +1586,13 @@ class _CommunityBadge extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: isDark
-                ? AppColors.romanticPrimary.withValues(alpha: 0.2)
-                : AppColors.primary.withValues(alpha: 0.1),
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)
+                : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: isDark
-                  ? AppColors.romanticPrimary.withValues(alpha: 0.3)
-                  : AppColors.primary.withValues(alpha: 0.2),
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)
+                  : Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
               width: 0.5,
             ),
           ),
@@ -1602,7 +1602,7 @@ class _CommunityBadge extends StatelessWidget {
               fontSize: 9,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.0,
-              color: isDark ? AppColors.romanticPrimary : AppColors.primary,
+              color: isDark ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.primary,
             ),
           ),
         ),

@@ -126,9 +126,9 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainerLow,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         title: Text('New Collection',
-            style: GoogleFonts.ebGaramond(fontSize: 20, color: AppColors.onSurface)),
+            style: GoogleFonts.ebGaramond(fontSize: 20, color: Theme.of(context).colorScheme.onSurface)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
@@ -136,23 +136,23 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
           decoration: InputDecoration(
             hintText: 'Collection name…',
             hintStyle: GoogleFonts.literata(
-                color: AppColors.outline, fontStyle: FontStyle.italic),
+                color: Theme.of(context).colorScheme.outline, fontStyle: FontStyle.italic),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
             focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(color: AppColors.primary)),
+                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
           ),
           onSubmitted: (v) => Navigator.pop(ctx, v),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: GoogleFonts.inter(color: AppColors.outline)),
+            child: Text('Cancel', style: GoogleFonts.inter(color: Theme.of(context).colorScheme.outline)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text),
             child: Text('Create', style: GoogleFonts.inter(
-                color: AppColors.primary, fontWeight: FontWeight.w600)),
+                color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -162,8 +162,8 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceContainerLow,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: const EdgeInsets.only(top: 12, bottom: 32),
@@ -174,7 +174,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
           Container(
             width: 36, height: 4,
             decoration: BoxDecoration(
-              color: AppColors.outline.withValues(alpha: 0.4),
+              color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -190,9 +190,9 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                         fontSize: 20, fontWeight: FontWeight.w500)),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
-                  color: AppColors.outline,
+                  color: Theme.of(context).colorScheme.outline,
                   iconSize: 20,
                 ),
               ],
@@ -211,14 +211,14 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
               leading: Container(
                 width: 52, height: 52,
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerHigh,
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: AppColors.outlineVariant,
+                    color: Theme.of(context).colorScheme.outlineVariant,
                     style: BorderStyle.solid,
                   ),
                 ),
-                child: const Icon(Icons.add, color: AppColors.primary),
+                child: Icon(Icons.add, color: Theme.of(context).colorScheme.primary),
               ),
               title: Text('New Collection',
                   style: GoogleFonts.inter(
@@ -236,7 +236,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                   textAlign: TextAlign.center,
                   style: GoogleFonts.literata(
                       fontSize: 14,
-                      color: AppColors.outline,
+                      color: Theme.of(context).colorScheme.outline,
                       fontStyle: FontStyle.italic),
                 ),
               )
@@ -261,14 +261,14 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                       subtitle: Text(
                         '${col.postCount} post${col.postCount == 1 ? '' : 's'}',
                         style: GoogleFonts.inter(
-                            fontSize: 12, color: AppColors.outline),
+                            fontSize: 12, color: Theme.of(context).colorScheme.outline),
                       ),
                       trailing: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 200),
                         child: Icon(
                           saved ? Icons.check_circle : Icons.circle_outlined,
                           key: ValueKey(saved),
-                          color: saved ? AppColors.primary : AppColors.outline,
+                          color: saved ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outline,
                           size: 24,
                         ),
                       ),
@@ -294,15 +294,15 @@ class _CollectionThumb extends StatelessWidget {
       width: 52,
       height: 52,
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(6),
         image: url != null
             ? DecorationImage(image: NetworkImage(url!), fit: BoxFit.cover)
             : null,
       ),
       child: url == null
-          ? const Icon(Icons.collections_bookmark_outlined,
-              color: AppColors.outline, size: 22)
+          ? Icon(Icons.collections_bookmark_outlined,
+              color: Theme.of(context).colorScheme.outline, size: 22)
           : null,
     );
   }

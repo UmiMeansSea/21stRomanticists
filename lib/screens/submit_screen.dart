@@ -14,6 +14,7 @@ import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/services/image_service.dart';
+import 'package:romanticists_app/repositories/post_repository.dart';
 
 /// Write & publish screen — supports editing existing submissions and drafts.
 class SubmitScreen extends StatefulWidget {
@@ -140,8 +141,11 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
       imageUrl: widget.existingSubmission?.imageUrl,
     );
 
+    final repo = context.read<IPostRepository>();
+
     // Give it to the UploadProvider and leave immediately
     context.read<UploadProvider>().startUpload(
+      repository: repo,
       uid: uid,
       submission: submission,
       imageFile: _imageFile,
@@ -178,10 +182,12 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
         imageUrl: widget.existingSubmission?.imageUrl,
       );
 
+      final repo = context.read<IPostRepository>();
+
       if (_currentSubmissionId != null) {
-        await FirebaseService.instance.updateSubmission(_currentSubmissionId!, submission);
+        await repo.updatePost(_currentSubmissionId!, submission);
       } else {
-        final newId = await FirebaseService.instance.submitWork(submission);
+        final newId = await repo.createPost(submission);
         _currentSubmissionId = newId;
       }
 
@@ -215,8 +221,8 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
   void _showSnack(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: GoogleFonts.literata(color: AppColors.background)),
-        backgroundColor: isError ? AppColors.error : AppColors.accent,
+        content: Text(msg, style: GoogleFonts.literata(color: Theme.of(context).colorScheme.onInverseSurface)),
+        backgroundColor: isError ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 4),
       ),
@@ -276,7 +282,7 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
                     'Your work publishes instantly to the community.',
                     style: GoogleFonts.literata(
                         fontSize: 14,
-                        color: AppColors.onSurfaceVariant,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontStyle: FontStyle.italic),
                   ),
                   const SizedBox(height: 28),
@@ -340,8 +346,8 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
                   const SizedBox(height: 6),
                   DropdownButtonFormField<SubmissionCategory>(
                     value: _category,
-                    style: GoogleFonts.literata(fontSize: 16, color: AppColors.onSurface),
-                    dropdownColor: AppColors.surfaceContainerLow,
+                    style: GoogleFonts.literata(fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
+                    dropdownColor: Theme.of(context).colorScheme.surfaceContainer,
                     decoration: _dec(''),
                     items: SubmissionCategory.values
                         .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
@@ -363,7 +369,7 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
                       const SizedBox(width: 6),
                       Text('(max 3)',
                           style: GoogleFonts.inter(
-                              fontSize: 10, color: AppColors.outline, letterSpacing: 0.5)),
+                              fontSize: 10, color: Theme.of(context).colorScheme.outline, letterSpacing: 0.5)),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -472,12 +478,12 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Container(
                       height: 180,
-                      color: AppColors.surfaceContainerLow,
+                      color: Theme.of(context).colorScheme.surfaceContainer,
                       child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
                     ),
                     errorWidget: (context, url, error) => Container(
                       height: 180,
-                      color: AppColors.surfaceContainerLow,
+                      color: Theme.of(context).colorScheme.surfaceContainer,
                       child: const Icon(Icons.error_outline),
                     ),
                   ),
@@ -519,10 +525,10 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
         width: double.infinity,
         height: 120,
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLow,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: AppColors.outlineVariant,
+            color: Theme.of(context).colorScheme.outlineVariant,
             style: BorderStyle.solid,
           ),
         ),
@@ -530,11 +536,11 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.add_photo_alternate_outlined,
-                size: 32, color: AppColors.outline.withValues(alpha: 0.7)),
+                size: 32, color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.7)),
             const SizedBox(height: 8),
             Text('Add cover image',
                 style: GoogleFonts.inter(
-                    fontSize: 13, color: AppColors.outline)),
+                    fontSize: 13, color: Theme.of(context).colorScheme.outline)),
           ],
         ),
       ),
@@ -555,7 +561,7 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
             decoration: _dec('e.g. romance, sonnets, nature').copyWith(
               hintStyle: GoogleFonts.inter(
                   fontSize: 13,
-                  color: AppColors.onSurfaceVariant,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontStyle: FontStyle.italic),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -569,14 +575,14 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: _tags.length >= 3
-                  ? AppColors.surfaceContainerHigh
-                  : AppColors.primary,
+                  ? Theme.of(context).colorScheme.surfaceContainerHigh
+                  : Theme.of(context).colorScheme.primary,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Icon(Icons.add,
                 color: _tags.length >= 3
-                    ? AppColors.outline
-                    : AppColors.onPrimary,
+                    ? Theme.of(context).colorScheme.outline
+                    : Theme.of(context).colorScheme.onPrimary,
                 size: 20),
           ),
         ),
@@ -594,7 +600,7 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
           children: [
             CircleAvatar(
               radius: 12,
-              backgroundColor: AppColors.surfaceContainerHigh,
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
               backgroundImage: user.photoURL != null ? CachedNetworkImageProvider(user.photoURL!) : null,
               child: user.photoURL == null ? const Icon(Icons.person, size: 14) : null,
             ),
@@ -604,15 +610,15 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
             const Spacer(),
             Switch(
               value: _isAnonymous,
               onChanged: (v) => setState(() => _isAnonymous = v),
-              activeColor: AppColors.primary,
-              activeTrackColor: AppColors.primary.withValues(alpha: 0.3),
+              activeColor: Theme.of(context).colorScheme.primary,
+              activeTrackColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
             ),
           ],
         ),
@@ -623,7 +629,7 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
               'Your identity will be hidden.',
               style: GoogleFonts.literata(
                 fontSize: 12,
-                color: AppColors.outline,
+                color: Theme.of(context).colorScheme.outline,
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -637,9 +643,9 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: AppColors.outlineVariant),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Row(
         children: [
@@ -651,12 +657,12 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
                     style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.onSurface)),
+                        color: Theme.of(context).colorScheme.onSurface)),
                 const SizedBox(height: 2),
                 Text('Your name will not appear with the piece.',
                     style: GoogleFonts.literata(
                         fontSize: 13,
-                        color: AppColors.onSurfaceVariant,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontStyle: FontStyle.italic)),
               ],
             ),
@@ -664,7 +670,7 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
           Switch(
             value: _isAnonymous,
             onChanged: (v) => setState(() => _isAnonymous = v),
-            activeColor: AppColors.primary,
+            activeColor: Theme.of(context).colorScheme.primary,
           ),
         ],
       ),
@@ -684,9 +690,9 @@ class _TagChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -695,12 +701,12 @@ class _TagChip extends StatelessWidget {
               style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.primary)),
+                  color: Theme.of(context).colorScheme.primary)),
           const SizedBox(width: 6),
           GestureDetector(
             onTap: onRemove,
             child: Icon(Icons.close,
-                size: 14, color: AppColors.primary.withValues(alpha: 0.7)),
+                size: 14, color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7)),
           ),
         ],
       ),
@@ -722,7 +728,7 @@ class _FieldLabel extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.2,
-          color: AppColors.onSurfaceVariant),
+          color: Theme.of(context).colorScheme.onSurfaceVariant),
     );
   }
 }
@@ -736,13 +742,13 @@ class _SectionDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Container(height: 0.4, color: AppColors.outlineVariant)),
+        Expanded(child: Container(height: 0.4, color: Theme.of(context).colorScheme.outlineVariant)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text('✦',
-              style: GoogleFonts.ebGaramond(fontSize: 14, color: AppColors.outline)),
+              style: GoogleFonts.ebGaramond(fontSize: 14, color: Theme.of(context).colorScheme.outline)),
         ),
-        Expanded(child: Container(height: 0.4, color: AppColors.outlineVariant)),
+        Expanded(child: Container(height: 0.4, color: Theme.of(context).colorScheme.outlineVariant)),
       ],
     );
   }

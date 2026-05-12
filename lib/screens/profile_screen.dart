@@ -90,7 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (_error != null) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         body: _ErrorState(message: _error!, onRetry: _load),
       );
     }
@@ -98,16 +98,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         body: NestedScrollView(
           headerSliverBuilder: (context, innerBoxIsScrolled) => [
             // ── App Bar ───────────────────────────────────────────────────
             SliverAppBar(
               pinned: true,
-              backgroundColor: AppColors.background,
+              backgroundColor: Theme.of(context).colorScheme.surface,
               elevation: 0,
               leading: IconButton(
-                icon: const Icon(Icons.menu, color: AppColors.primary),
+                icon: Icon(Icons.menu, color: Theme.of(context).colorScheme.primary),
                 onPressed: () {}, // Drawer or Menu
               ),
               centerTitle: true,
@@ -116,13 +116,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: GoogleFonts.ebGaramond(
                   fontSize: 22,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.primary,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.settings_outlined,
-                      color: AppColors.primary),
+                  icon: Icon(Icons.settings_outlined,
+                      color: Theme.of(context).colorScheme.primary),
                   onPressed: () => context.push('/settings'),
                 ),
               ],
@@ -150,11 +150,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                                     fit: BoxFit.cover)
                                 : null,
-                            color: AppColors.surfaceContainerHigh,
+                            color: Theme.of(context).colorScheme.surfaceContainerHigh,
                           ),
                           child: photoUrl == null
-                              ? const Icon(Icons.person,
-                                  size: 60, color: AppColors.outline)
+                              ? Icon(Icons.person,
+                                  size: 60, color: Theme.of(context).colorScheme.outline)
                               : null,
                         ),
                         Positioned(
@@ -162,11 +162,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           right: 0,
                           child: Container(
                             padding: const EdgeInsets.all(8),
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: Colors.black,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.edit,
+                            child: Icon(Icons.edit,
                                 color: Colors.white, size: 16),
                           ),
                         ),
@@ -179,7 +179,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     style: GoogleFonts.ebGaramond(
                       fontSize: 32,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.onSurface,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   if ((_firestoreData?['username'] as String?)?.isNotEmpty ?? false)
@@ -189,7 +189,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         '@${_firestoreData!['username']}',
                         style: GoogleFonts.inter(
                           fontSize: 13,
-                          color: AppColors.outline,
+                          color: Theme.of(context).colorScheme.outline,
                           letterSpacing: 0.3,
                         ),
                       ),
@@ -202,7 +202,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       textAlign: TextAlign.center,
                       style: GoogleFonts.literata(
                         fontSize: 14,
-                        color: AppColors.onSurfaceVariant,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontStyle: FontStyle.italic,
                         height: 1.6,
                       ),
@@ -218,8 +218,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: FilledButton(
                             onPressed: () => context.push('/edit-profile').then((_) => _load()),
                             style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: AppColors.onPrimary,
+                              backgroundColor: Theme.of(context).colorScheme.primary,
+                              foregroundColor: Theme.of(context).colorScheme.onPrimary,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
                             ),
@@ -236,12 +236,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(width: 12),
                         Container(
                           decoration: BoxDecoration(
-                            border: Border.all(color: AppColors.outlineVariant),
+                            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                             borderRadius: BorderRadius.circular(2),
                           ),
                           child: IconButton(
-                            icon: const Icon(Icons.share_outlined, size: 20),
-                            color: AppColors.onSurface,
+                            icon: Icon(Icons.share_outlined, size: 20),
+                            color: Theme.of(context).colorScheme.onSurface,
                             onPressed: () {
                               final profileLink = 'https://romanticists.app/profile/${user?.uid}';
                               Share.share(
@@ -290,11 +290,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 TabBar(
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
-                  indicatorColor: AppColors.primary,
+                  indicatorColor: Theme.of(context).colorScheme.primary,
                   indicatorWeight: 3,
                   indicatorSize: TabBarIndicatorSize.label,
-                  labelColor: AppColors.onSurface,
-                  unselectedLabelColor: AppColors.outline,
+                  labelColor: Theme.of(context).colorScheme.onSurface,
+                  unselectedLabelColor: Theme.of(context).colorScheme.outline,
                   dividerColor: Colors.transparent,
                   labelStyle: GoogleFonts.inter(
                       fontSize: 12,
@@ -324,7 +324,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildPublishedGrid() {
     if (_loading) {
       return const Center(
-          child: CircularProgressIndicator(color: AppColors.primary));
+          child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary));
     }
     if (_submissions == null || _submissions!.isEmpty) {
       return _EmptyState();
@@ -340,7 +340,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final collectionsProvider = context.watch<CollectionsProvider>();
     
     if (collectionsProvider.status == CollectionsStatus.loading && collectionsProvider.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary));
     }
     
     final cols = collectionsProvider.items;
@@ -351,16 +351,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Icon(Icons.collections_bookmark_outlined,
                 size: 52,
-                color: AppColors.outline.withValues(alpha: 0.3)),
+                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3)),
             const SizedBox(height: 16),
             Text('No Collections Yet',
                 style: GoogleFonts.ebGaramond(
-                    fontSize: 20, color: AppColors.onSurface)),
+                    fontSize: 20, color: Theme.of(context).colorScheme.onSurface)),
             const SizedBox(height: 8),
             Text('Save a post and add it to a collection.',
                 style: GoogleFonts.literata(
                     fontSize: 13,
-                    color: AppColors.outline,
+                    color: Theme.of(context).colorScheme.outline,
                     fontStyle: FontStyle.italic)),
           ],
         ),
@@ -382,7 +382,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               '/collection/$uid/${col.id}?name=${Uri.encodeComponent(col.name)}'),
           child: Container(
             decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(8),
               image: col.coverImageUrl != null
                   ? DecorationImage(
@@ -398,7 +398,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (col.coverImageUrl == null)
                   const Center(
                     child: Icon(Icons.collections_bookmark_outlined,
-                        size: 36, color: AppColors.outline),
+                        size: 36, color: Theme.of(context).colorScheme.outline),
                   ),
                 Positioned(
                   bottom: 0,
@@ -428,7 +428,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             fontWeight: FontWeight.w600,
                             color: col.coverImageUrl != null
                                 ? Colors.white
-                                : AppColors.onSurface,
+                                : Theme.of(context).colorScheme.onSurface,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -439,7 +439,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             fontSize: 11,
                             color: col.coverImageUrl != null
                                 ? Colors.white70
-                                : AppColors.outline,
+                                : Theme.of(context).colorScheme.outline,
                           ),
                         ),
                       ],
@@ -486,7 +486,7 @@ class _StatItem extends StatelessWidget {
         Text(
           label,
           style: GoogleFonts.inter(
-              fontSize: 11, color: AppColors.outline, letterSpacing: 0.5),
+              fontSize: 11, color: Theme.of(context).colorScheme.outline, letterSpacing: 0.5),
         ),
       ],
     );
@@ -506,7 +506,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
-      color: AppColors.background,
+      color: Theme.of(context).colorScheme.surface,
       child: _tabBar,
     );
   }
@@ -555,15 +555,15 @@ class _GridCard extends StatelessWidget {
     
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surfaceContainerLow,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: 8),
           ListTile(
-            leading: const Icon(Icons.edit_outlined),
-            title: const Text('Edit'),
+            leading: Icon(Icons.edit_outlined),
+            title: Text('Edit'),
             onTap: () {
               Navigator.pop(context);
               context.push('/submit', extra: sub).then((_) => onAction?.call());
@@ -571,8 +571,8 @@ class _GridCard extends StatelessWidget {
           ),
           if (sub.status == SubmissionStatus.approved)
             ListTile(
-              leading: const Icon(Icons.archive_outlined),
-              title: const Text('Archive to Drafts'),
+              leading: Icon(Icons.archive_outlined),
+              title: Text('Archive to Drafts'),
               onTap: () async {
                 Navigator.pop(context);
                 final updated = sub.copyWith(status: SubmissionStatus.draft);
@@ -586,8 +586,8 @@ class _GridCard extends StatelessWidget {
               },
             ),
           ListTile(
-            leading: const Icon(Icons.delete_outline, color: AppColors.error),
-            title: const Text('Delete', style: TextStyle(color: AppColors.error)),
+            leading: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+            title: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
             onTap: () {
               Navigator.pop(context);
               _confirmDelete(context, sub);
@@ -603,17 +603,17 @@ class _GridCard extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Post'),
-        content: const Text('Are you sure you want to delete this? This action cannot be undone.'),
+        title: Text('Delete Post'),
+        content: Text('Are you sure you want to delete this? This action cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('CANCEL')),
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
               await FirebaseService.instance.deleteSubmission(sub.id!);
               onAction?.call();
             },
-            child: const Text('DELETE', style: TextStyle(color: AppColors.error)),
+            child: Text('DELETE', style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
         ],
       ),
@@ -671,7 +671,7 @@ class _GridCard extends StatelessWidget {
                             color: Colors.black.withValues(alpha: 0.4),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.more_vert, size: 16, color: Colors.white),
+                          child: Icon(Icons.more_vert, size: 16, color: Colors.white),
                         ),
                       ),
                     ),
@@ -688,7 +688,7 @@ class _GridCard extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.w600,
               height: 1.2,
-              color: AppColors.onSurface,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ],
@@ -697,14 +697,14 @@ class _GridCard extends StatelessWidget {
   }
 
   Widget _placeholder() => Container(
-        color: AppColors.surfaceContainerHigh,
-        child: const Icon(Icons.auto_stories_outlined, color: AppColors.outline),
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        child: Icon(Icons.auto_stories_outlined, color: Theme.of(context).colorScheme.outline),
       );
 
   Widget _placeholderShimmer() => Container(
-    color: AppColors.surfaceContainerHigh,
+    color: Theme.of(context).colorScheme.surfaceContainerHigh,
     child: const Center(
-      child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.outline),
+      child: CircularProgressIndicator(strokeWidth: 1.5, color: Theme.of(context).colorScheme.outline),
     ),
   );
 }
@@ -724,13 +724,13 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 48, color: AppColors.outline),
+          Icon(icon, size: 48, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 16),
           Text(
             message,
             style: GoogleFonts.ebGaramond(
               fontSize: 20,
-              color: AppColors.onSurface,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ],
@@ -751,7 +751,7 @@ class _ErrorState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(message, style: GoogleFonts.literata(fontSize: 14)),
-          TextButton(onPressed: onRetry, child: const Text('Retry')),
+          TextButton(onPressed: onRetry, child: Text('Retry')),
         ],
       ),
     );
@@ -762,14 +762,14 @@ class _GuestView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(40),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.person_outline, size: 64, color: AppColors.outline),
+              Icon(Icons.person_outline, size: 64, color: Theme.of(context).colorScheme.outline),
               const SizedBox(height: 24),
               Text(
                 'Sign in to see your profile',
@@ -779,11 +779,11 @@ class _GuestView extends StatelessWidget {
               ElevatedButton(
                 onPressed: () => context.push('/login'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.onPrimary,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   minimumSize: const Size(double.infinity, 50),
                 ),
-                child: const Text('Sign In'),
+                child: Text('Sign In'),
               ),
             ],
           ),

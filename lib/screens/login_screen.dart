@@ -64,7 +64,7 @@ class _LoginScreenState extends State<LoginScreen>
         context.go('/');
       } else {
         // Failure: Show SnackBar with error message
-        _showSnack(auth.errorMessage ?? 'Authentication failed', isError: true);
+        _showSnack(auth.failure?.message ?? 'Authentication failed', isError: true);
       }
     }
   }
@@ -80,8 +80,8 @@ class _LoginScreenState extends State<LoginScreen>
         // Failure: Show SnackBar with error message
         // (Note: we don't show snackbar if ok is false but errorMessage is null, 
         // which happens if the user cancels the Google picker)
-        if (auth.errorMessage != null) {
-          _showSnack(auth.errorMessage!, isError: true);
+        if (auth.failure != null) {
+          _showSnack(auth.failure!.message, isError: true);
         }
       }
     }
@@ -98,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen>
       _showSnack(
         ok
             ? 'Password reset email sent.'
-            : auth.errorMessage ?? 'Could not send reset email.',
+            : auth.failure?.message ?? 'Could not send reset email.',
         isError: !ok,
       );
     }
@@ -107,8 +107,8 @@ class _LoginScreenState extends State<LoginScreen>
   void _showSnack(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: GoogleFonts.literata(color: Colors.white)),
-        backgroundColor: isError ? AppColors.error : AppColors.accent,
+        content: Text(msg, style: GoogleFonts.literata(color: Theme.of(context).colorScheme.onInverseSurface)),
+        backgroundColor: isError ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -128,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen>
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
@@ -137,8 +137,8 @@ class _LoginScreenState extends State<LoginScreen>
             children: [
               // ── Back button ──────────────────────────────────────────────
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new,
-                    size: 18, color: AppColors.primary),
+                icon: Icon(Icons.arrow_back_ios_new,
+                    size: 18, color: Theme.of(context).colorScheme.primary),
                 onPressed: () =>
                     context.canPop() ? context.pop() : context.go('/'),
               ),
@@ -151,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen>
                   fontSize: 40,
                   fontWeight: FontWeight.w500,
                   height: 1.1,
-                  color: AppColors.primary,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -159,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen>
                 'A literary home for poets and essayists.',
                 style: GoogleFonts.literata(
                   fontSize: 15,
-                  color: AppColors.onSurfaceVariant,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -170,9 +170,9 @@ class _LoginScreenState extends State<LoginScreen>
               const SizedBox(height: 28),
 
               // ── Error banner ─────────────────────────────────────────────
-              if (auth.errorMessage != null)
+              if (auth.failure != null)
                 _ErrorBanner(
-                  message: auth.errorMessage!,
+                  message: auth.failure!.message,
                   onDismiss: context.read<AuthProvider>().clearError,
                 ),
 
@@ -219,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen>
                               ? Icons.visibility_outlined
                               : Icons.visibility_off_outlined,
                           size: 20,
-                          color: AppColors.outline,
+                          color: Theme.of(context).colorScheme.outline,
                         ),
                         onPressed: () => setState(() => _obscure = !_obscure),
                       ),
@@ -248,7 +248,7 @@ class _LoginScreenState extends State<LoginScreen>
                       'Forgot password?',
                       style: GoogleFonts.inter(
                         fontSize: 13,
-                        color: AppColors.secondary,
+                        color: Theme.of(context).colorScheme.secondary,
                       ),
                     ),
                   ),
@@ -262,8 +262,8 @@ class _LoginScreenState extends State<LoginScreen>
                 child: ElevatedButton(
                   onPressed: auth.isLoading ? null : _submit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.onPrimary,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(2)),
@@ -285,19 +285,19 @@ class _LoginScreenState extends State<LoginScreen>
               // ── Divider ──────────────────────────────────────────────────
               Row(children: [
                 Expanded(
-                    child: Divider(color: AppColors.outlineVariant, height: 1)),
+                    child: Divider(color: Theme.of(context).colorScheme.outlineVariant, height: 1)),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
                     'or',
                     style: GoogleFonts.literata(
                         fontSize: 13,
-                        color: AppColors.onSurfaceVariant,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontStyle: FontStyle.italic),
                   ),
                 ),
                 Expanded(
-                    child: Divider(color: AppColors.outlineVariant, height: 1)),
+                    child: Divider(color: Theme.of(context).colorScheme.outlineVariant, height: 1)),
               ]),
               const SizedBox(height: 20),
 
@@ -311,12 +311,12 @@ class _LoginScreenState extends State<LoginScreen>
                     'Continue with Google',
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w500,
-                      color: AppColors.onSurface,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: AppColors.outlineVariant),
+                    side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(2)),
                   ),
@@ -341,14 +341,14 @@ class _TabRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: AppColors.outlineVariant),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: TabBar(
         controller: controller,
         indicator: BoxDecoration(
-          color: AppColors.primary,
+          color: Theme.of(context).colorScheme.primary,
           borderRadius: BorderRadius.circular(2),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
@@ -356,8 +356,8 @@ class _TabRow extends StatelessWidget {
         labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
         unselectedLabelStyle:
             GoogleFonts.inter(fontWeight: FontWeight.w400, fontSize: 14),
-        labelColor: AppColors.onPrimary,
-        unselectedLabelColor: AppColors.onSurfaceVariant,
+        labelColor: Theme.of(context).colorScheme.onPrimary,
+        unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
         tabs: const [Tab(text: 'Sign In'), Tab(text: 'Create Account')],
       ),
     );
@@ -396,7 +396,7 @@ class _LitField extends StatelessWidget {
             fontSize: 10,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.2,
-            color: AppColors.onSurfaceVariant,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 6),
@@ -411,29 +411,29 @@ class _LitField extends StatelessWidget {
             hintText: hint,
             hintStyle: GoogleFonts.literata(
               fontSize: 15,
-              color: AppColors.onSurfaceVariant,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontStyle: FontStyle.italic,
             ),
             suffixIcon: suffixIcon,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(2),
-              borderSide: const BorderSide(color: AppColors.outlineVariant),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(2),
-              borderSide: const BorderSide(color: AppColors.outlineVariant),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(2),
               borderSide:
-                  const BorderSide(color: AppColors.primary, width: 1.5),
+                  BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(2),
-              borderSide: const BorderSide(color: AppColors.error),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.error),
             ),
             filled: true,
-            fillColor: AppColors.surfaceContainerLow,
+            fillColor: Theme.of(context).colorScheme.surfaceContainer,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
@@ -454,25 +454,25 @@ class _ErrorBanner extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.08),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+        color: Theme.of(context).colorScheme.error.withValues(alpha: 0.08),
+        border: Border.all(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(2),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, size: 18, color: AppColors.error),
+          Icon(Icons.error_outline, size: 18, color: Theme.of(context).colorScheme.error),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
               style: GoogleFonts.literata(
-                  fontSize: 13, color: AppColors.onSurface),
+                  fontSize: 13, color: Theme.of(context).colorScheme.onSurface),
             ),
           ),
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            icon: const Icon(Icons.close, size: 16, color: AppColors.outline),
+            icon: Icon(Icons.close, size: 16, color: Theme.of(context).colorScheme.outline),
             onPressed: onDismiss,
           ),
         ],
@@ -484,11 +484,11 @@ class _ErrorBanner extends StatelessWidget {
 class _Spinner extends StatelessWidget {
   const _Spinner();
   @override
-  Widget build(BuildContext context) => const SizedBox(
+  Widget build(BuildContext context) => SizedBox(
         width: 20,
         height: 20,
         child: CircularProgressIndicator(
-          color: AppColors.onPrimary,
+          color: Theme.of(context).colorScheme.onPrimary,
           strokeWidth: 2,
         ),
       );

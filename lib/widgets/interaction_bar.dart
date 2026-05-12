@@ -124,7 +124,7 @@ class InteractionBar extends StatelessWidget {
               fontSize: 14,
             ),
           ),
-          backgroundColor: AppColors.primary,
+          backgroundColor: Theme.of(context).colorScheme.primary,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 4),
           action: SnackBarAction(

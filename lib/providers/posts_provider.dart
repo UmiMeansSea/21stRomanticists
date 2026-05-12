@@ -10,17 +10,24 @@ import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/services/read_status_service.dart';
 import 'package:romanticists_app/services/engagement_service.dart';
 
+import 'package:romanticists_app/repositories/post_repository.dart';
+import 'package:romanticists_app/repositories/wp_post_repository.dart';
+
 enum PostsStatus { initial, loading, loadingMore, success, failure }
 
 /// Manages the merged home feed: WordPress posts + Firestore community
 /// submissions. Pagination applies to WP posts only; submissions are loaded
 /// in full (≤30) and merged into the sorted result.
 class PostsProvider extends ChangeNotifier {
-  PostsProvider() {
+  final IPostRepository firebaseRepository;
+  final WpPostRepository wpRepository;
+
+  PostsProvider({
+    required this.firebaseRepository,
+    required this.wpRepository,
+  }) {
     _init();
   }
-
-  final WpApiService _api = WpApiService.instance;
 
   // ─── State ─────────────────────────────────────────────────────────────────
   List<Post> _posts = [];
@@ -237,9 +244,9 @@ class PostsProvider extends ChangeNotifier {
 
     // ── STEP A: Show cached posts INSTANTLY ───────────────────────────────────
     // This makes the UI appear full and usable within ~1 frame.
-    final cached = await _api.readCachedPosts();
+    final cached = await wpRepository.getCachedPosts();
     if (cached.isNotEmpty) {
-      _posts = cached;
+      _posts = cached.whereType<Post>().toList();
       _status = PostsStatus.success;
       notifyListeners();
     }
@@ -262,8 +269,8 @@ class PostsProvider extends ChangeNotifier {
     if (_isFetchingFresh) return;
     _isFetchingFresh = true;
     try {
-      _totalPages = await _api.fetchTotalPages();
-      final fresh = await _api.fetchPosts(page: 1);
+      _totalPages = await wpRepository.fetchTotalPages();
+      final fresh = await wpRepository.fetchPosts(page: 1);
 
       if (fresh.isEmpty) {
         if (_posts.isEmpty) _status = PostsStatus.failure;
@@ -286,7 +293,7 @@ class PostsProvider extends ChangeNotifier {
       }
 
       // Overwrite disk cache with latest data.
-      unawaited(_api.writeCachedPosts(fresh));
+      unawaited(wpRepository.cachePosts(fresh));
 
       _status = PostsStatus.success;
     } catch (e) {
@@ -301,7 +308,8 @@ class PostsProvider extends ChangeNotifier {
 
   Future<void> _fetchSubmissions() async {
     try {
-      _submissions = await FirebaseService.instance.getPublishedSubmissions();
+      final items = await firebaseRepository.fetchPosts();
+      _submissions = items.whereType<Submission>().toList();
       notifyListeners();
     } catch (e) {
       debugPrint('Firestore submissions failed: $e');
@@ -310,17 +318,17 @@ class PostsProvider extends ChangeNotifier {
 
   Future<void> _loadTags() async {
     try {
-      _wpTags = await _api.fetchTags();
+      _wpTags = await wpRepository.fetchTags();
       notifyListeners();
     } catch (_) {}
   }
 
   Future<void> _loadCategories() async {
     try {
-      final cats = await _api.fetchCategories();
+      final cats = await wpRepository.fetchCategories();
       _categories = [
         const Category(id: 0, name: 'All', slug: 'all', count: 0),
-        ...cats,
+        ...cats.whereType<Category>(),
       ];
       notifyListeners();
     } catch (_) {}
@@ -346,18 +354,20 @@ class PostsProvider extends ChangeNotifier {
         List<Post> results;
 
         if (_searchQuery.isNotEmpty) {
-          results = await _api.searchPosts(_searchQuery, page: _currentPage);
+          final res = await wpRepository.fetchPosts(search: _searchQuery, page: _currentPage);
+          results = res.whereType<Post>().toList();
         } else {
-          _totalPages = await _api.fetchTotalPages(
+          _totalPages = await wpRepository.fetchTotalPages(
             categoryId: categoryId == 0 ? null : categoryId,
             search: _searchQuery.isEmpty ? null : _searchQuery,
             tagName: _selectedTag,
           );
-          results = await _api.fetchPosts(
+          final res = await wpRepository.fetchPosts(
             page: _currentPage,
             categoryId: categoryId == 0 ? null : categoryId,
             tagName: _selectedTag,
           );
+          results = res.whereType<Post>().toList();
         }
         // FIX 3: Deduplicate posts (Avoid overlapping items from pagination)
         final existingIds = _posts.map((p) => p.id).toSet();
@@ -366,7 +376,7 @@ class PostsProvider extends ChangeNotifier {
 
         // Only update the disk cache when fetching unfiltered page 1
         if (reset && _selectedCategory == null && _selectedTag == null && _searchQuery.isEmpty) {
-          unawaited(_api.writeCachedPosts(results));
+          unawaited(wpRepository.cachePosts(results));
         }
       } catch (e) {
         debugPrint('WP load failed: $e');
@@ -376,7 +386,8 @@ class PostsProvider extends ChangeNotifier {
       // 2. Fetch Firestore submissions (only on reset)
       if (reset) {
         try {
-          _submissions = await FirebaseService.instance.getPublishedSubmissions();
+          final items = await firebaseRepository.fetchPosts();
+          _submissions = items.whereType<Submission>().toList();
         } catch (e) {
           debugPrint('Firestore load failed: $e');
           _submissions = [];
@@ -398,7 +409,7 @@ class PostsProvider extends ChangeNotifier {
     }
 
     try {
-      final restacks = await FirebaseService.instance.getRestacksFromFollowedUsers(_followingIds);
+      final restacks = await firebaseRepository.getRestacksFromFollowedUsers(_followingIds);
       _followedRestackIds = restacks.map((r) => 'sub_$r').toSet();
     } catch (_) {}
   }
@@ -521,10 +532,10 @@ class PostsProvider extends ChangeNotifier {
       sub = item.submission;
     } else if (item.wpPost != null) {
       // Migrate WP post on-the-fly if needed
-      await FirebaseService.instance.migrateWordPressPost(item.wpPost!);
+      await firebaseRepository.migrateWordPressPost(item.wpPost!);
       // Re-fetch to get the newly created submission
-      final results = await FirebaseService.instance.getPublishedSubmissions();
-      sub = results.firstWhere((s) => s.wpId == item.wpPost!.id);
+      final results = await firebaseRepository.fetchPosts();
+      sub = results.whereType<Submission>().firstWhere((s) => s.wpId == item.wpPost!.id);
       _submissions.add(sub);
       notifyListeners();
     }
@@ -568,9 +579,9 @@ class PostsProvider extends ChangeNotifier {
     if (item.isSubmission) {
       sub = item.submission;
     } else if (item.wpPost != null) {
-      await FirebaseService.instance.migrateWordPressPost(item.wpPost!);
-      final results = await FirebaseService.instance.getPublishedSubmissions();
-      sub = results.firstWhere((s) => s.wpId == item.wpPost!.id);
+      await firebaseRepository.migrateWordPressPost(item.wpPost!);
+      final results = await firebaseRepository.fetchPosts();
+      sub = results.whereType<Submission>().firstWhere((s) => s.wpId == item.wpPost!.id);
       _submissions.add(sub);
       notifyListeners();
     }
@@ -608,9 +619,9 @@ class PostsProvider extends ChangeNotifier {
   Future<void> syncWithWordPress() async {
     try {
       // Fetch latest posts to sync
-      final wpPosts = await _api.fetchPosts(page: 1);
-      for (final post in wpPosts) {
-        await FirebaseService.instance.migrateWordPressPost(post);
+      final wpPosts = await wpRepository.fetchPosts(page: 1);
+      for (final post in wpPosts.whereType<Post>()) {
+        await firebaseRepository.migrateWordPressPost(post);
       }
       // After sync, refresh the feed from Firebase
       await refresh();
