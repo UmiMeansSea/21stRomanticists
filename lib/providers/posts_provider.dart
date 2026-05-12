@@ -74,6 +74,7 @@ class PostsProvider extends ChangeNotifier {
   bool get filterAnonymous => _filterAnonymous;
   String? get selectedTag => _selectedTag;
   int get scrollToTopCounter => _scrollToTopCounter;
+  String? get activeFilter => _activeFilter;
 
   List<String> get allTags {
     final tags = <String>{};
@@ -122,9 +123,14 @@ class PostsProvider extends ChangeNotifier {
 
     // 3. Apply Sidebar/Tag filter if active (New activeFilter state)
     if (_activeFilter != null) {
+      final normalizedFilter = _activeFilter!.toLowerCase();
+      
       final filtered = allItems.where((item) {
-        final normalizedFilter = _activeFilter!.toLowerCase();
-        
+        // Special case: Anonymous Sidebar Filter
+        if (normalizedFilter == 'anonymous') {
+          return item.isAnonymous;
+        }
+
         // Match by category label
         final categoryMatch = item.categoryLabel.toLowerCase() == normalizedFilter;
         
@@ -247,11 +253,13 @@ class PostsProvider extends ChangeNotifier {
 
   // ─── Initialization ────────────────────────────────────────────────────────
   Future<void> _init() async {
-    // Load categories/tags in parallel (fast, can be cached later too)
+    _status = PostsStatus.loading;
+    _errorMessage = null;
+    
+    // Load categories/tags in parallel
     unawaited(Future.wait([_loadCategories(), _loadTags()]));
 
     // ── STEP A: Show cached posts INSTANTLY ───────────────────────────────────
-    // This makes the UI appear full and usable within ~1 frame.
     final cached = await wpRepository.getCachedPosts();
     if (cached.isNotEmpty) {
       _posts = cached.whereType<Post>().toList();
@@ -262,13 +270,10 @@ class PostsProvider extends ChangeNotifier {
     // ── STEP B: Silently fetch Firestore submissions ──────────────────────────
     unawaited(_fetchSubmissions());
 
-    // ── STEP C: Silently revalidate WP posts from network ─────────────────────
-    // Only show loading spinner if cache was empty (first launch).
-    if (cached.isEmpty) {
-      _status = PostsStatus.loading;
-      notifyListeners();
-    }
-    await _fetchWpPosts(); // Use renamed method for Bug 1
+    // ── STEP C: Revalidate WP posts from network ─────────────────────────────
+    // If we have cached posts, we stay in 'success' but fetch silently.
+    // If cache is empty, we stay in 'loading' until network responds.
+    await _fetchWpPosts();
   }
 
   /// Fetches fresh WP posts from the network (page 1).
@@ -276,12 +281,20 @@ class PostsProvider extends ChangeNotifier {
   Future<void> _fetchWpPosts() async {
     if (_isFetchingFresh) return;
     _isFetchingFresh = true;
+    
+    // Clear error message at start of network fetch
+    _errorMessage = null;
+
     try {
       _totalPages = await wpRepository.fetchTotalPages();
       final fresh = await wpRepository.fetchPosts(page: 1);
 
       if (fresh.isEmpty) {
-        if (_posts.isEmpty) _status = PostsStatus.failure;
+        // Only fail if we have NO data at all (cache empty + network empty)
+        if (_posts.isEmpty && _submissions.isEmpty) {
+          _status = PostsStatus.failure;
+          _errorMessage = 'No posts found.';
+        }
         return;
       }
 
@@ -301,7 +314,11 @@ class PostsProvider extends ChangeNotifier {
       _status = PostsStatus.success;
     } catch (e) {
       debugPrint('WP fetch failed: $e');
-      if (_posts.isEmpty) _status = PostsStatus.failure;
+      // Only set failure if we have no data to show
+      if (_posts.isEmpty && _submissions.isEmpty) {
+        _status = PostsStatus.failure;
+        _errorMessage = 'Network error. Please check your connection.';
+      }
     } finally {
       _isFetchingFresh = false;
       notifyListeners();
@@ -440,6 +457,15 @@ class PostsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearFilters() {
+    _activeFilter = null;
+    _selectedCategory = null;
+    _selectedTag = null;
+    _filterAnonymous = false;
+    _searchQuery = '';
+    notifyListeners();
+  }
+
   Future<void> loadMore() async {
     if (!hasMore || isLoadingMore) return;
     _currentPage++;
@@ -537,6 +563,12 @@ class PostsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Removes a post from local state instantly.
+  void removePostLocally(String postId) {
+    _submissions.removeWhere((s) => s.id == postId);
+    notifyListeners();
+  }
+
   Future<void> toggleLike(FeedItem item) async {
     if (_currentUserId == null) return;
 
@@ -570,11 +602,7 @@ class PostsProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (newIsLiked) {
-        await EngagementService.instance.likePost(_currentUserId!, sub.id!, sub.userId);
-      } else {
-        await EngagementService.instance.unlikePost(_currentUserId!, sub.id!);
-      }
+      await EngagementService.instance.toggleLike(_currentUserId!, sub.id!, wasLiked);
     } catch (e) {
       // Revert on error
       _submissions[index] = sub.copyWith(
@@ -612,11 +640,9 @@ class PostsProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await EngagementService.instance.restackPost(
+      await EngagementService.instance.toggleRepost(
         _currentUserId!,
         sub.id!,
-        authorUid: sub.userId,
-        postTitle: sub.title,
       );
     } catch (e) {
       // Revert on error

@@ -17,6 +17,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/services/feed_image_cache.dart';
+import 'package:shimmer/shimmer.dart';
 
 /// Editorial post card — mirrors the Stitch design's surface-container-low
 /// cards with minimal borders, serif headings, and clean typography.
@@ -1159,46 +1160,25 @@ class _ShareButton extends StatelessWidget {
 
 // ─── Shimmer skeleton ─────────────────────────────────────────────────────
 
-class PostCardSkeleton extends StatefulWidget {
+class PostCardSkeleton extends StatelessWidget {
   final bool featured;
   const PostCardSkeleton({super.key, this.featured = false});
 
-  @override
-  State<PostCardSkeleton> createState() => _PostCardSkeletonState();
-}
-
-class _PostCardSkeletonState extends State<PostCardSkeleton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _shimmer;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
-    _shimmer = Tween<double>(begin: 0.4, end: 0.9).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Widget _block(double w, double h) {
-    return AnimatedBuilder(
-      animation: _shimmer,
-      builder: (_, __) => Container(
+  Widget _shimmerBlock(BuildContext context, double w, double h, {double radius = 4}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Shimmer.fromColors(
+      baseColor: isDark 
+          ? Theme.of(context).colorScheme.surfaceContainerHigh 
+          : Colors.grey[300]!,
+      highlightColor: isDark 
+          ? Theme.of(context).colorScheme.surfaceContainerHighest 
+          : Colors.grey[100]!,
+      child: Container(
         width: w,
         height: h,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHigh.withValues(alpha: _shimmer.value),
-          borderRadius: BorderRadius.circular(2),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(radius),
         ),
       ),
     );
@@ -1206,27 +1186,38 @@ class _PostCardSkeletonState extends State<PostCardSkeleton>
 
   @override
   Widget build(BuildContext context) {
-    if (widget.featured) {
+    if (featured) {
       return Container(
-        color: Theme.of(context).colorScheme.surfaceContainer,
+        margin: const EdgeInsets.only(bottom: 24),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(24),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AspectRatio(aspectRatio: 16/9, child: _block(double.infinity, 220)),
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: _shimmerBlock(context, double.infinity, double.infinity, radius: 24),
+            ),
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _block(100, 12),
+                  _shimmerBlock(context, 120, 14),
+                  const SizedBox(height: 16),
+                  _shimmerBlock(context, double.infinity, 32),
                   const SizedBox(height: 12),
-                  _block(double.infinity, 32),
-                  const SizedBox(height: 8),
-                  _block(double.infinity * 0.7, 16),
-                  const SizedBox(height: 12),
-                  _block(double.infinity, 14),
-                  const SizedBox(height: 6),
-                  _block(double.infinity, 14),
+                  _shimmerBlock(context, double.infinity * 0.8, 18),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      _shimmerBlock(context, 40, 40, radius: 20),
+                      const SizedBox(width: 12),
+                      _shimmerBlock(context, 100, 16),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -1234,25 +1225,37 @@ class _PostCardSkeletonState extends State<PostCardSkeleton>
         ),
       );
     }
+
     return Container(
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      height: 120,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(24),
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _block(100, 120),
+          _shimmerBlock(context, 100, 100, radius: 16),
+          const SizedBox(width: 16),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _block(80, 10),
-                  const SizedBox(height: 8),
-                  _block(double.infinity, 18),
-                  const SizedBox(height: 6),
-                  _block(double.infinity, 14),
-                ],
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _shimmerBlock(context, 80, 12),
+                const SizedBox(height: 12),
+                _shimmerBlock(context, double.infinity, 20),
+                const SizedBox(height: 8),
+                _shimmerBlock(context, double.infinity * 0.6, 16),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    _shimmerBlock(context, 24, 24, radius: 12),
+                    const SizedBox(width: 8),
+                    _shimmerBlock(context, 60, 12),
+                  ],
+                ),
+              ],
             ),
           ),
         ],

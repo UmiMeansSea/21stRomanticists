@@ -8,6 +8,8 @@ import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 /// A unified notifications + subscribed-feed screen.
 class NotificationsScreen extends StatefulWidget {
@@ -125,7 +127,9 @@ class _SubscribedFeedState extends State<_SubscribedFeed> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading && (_posts == null || _posts!.isEmpty)) {
+      return const _ShimmerList(); // FIX 3: Shimmer State
+    }
 
     final uid = context.read<AuthProvider>().user?.uid;
     if (uid == null) return _SignInPrompt();
@@ -199,36 +203,122 @@ class _NotificationsFeed extends StatefulWidget {
 }
 
 class _NotificationsFeedState extends State<_NotificationsFeed> {
+  final ScrollController _scrollController = ScrollController();
   List<Map<String, dynamic>>? _notifications;
-  bool _loading = true;
+  bool _loading = false;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  DocumentSnapshot? _lastDoc;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadInitial(); // FIX 1: Instant Rendering (SWR)
+    _scrollController.addListener(_onScroll);
   }
 
-  Future<void> _load() async {
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200 &&
+        !_loadingMore &&
+        _hasMore) {
+      _loadMore(); // FIX 2: Pagination
+    }
+  }
+
+  Future<void> _loadInitial() async {
     final uid = context.read<AuthProvider>().user?.uid;
-    if (uid == null) {
-      setState(() => _loading = false);
-      return;
+    if (uid == null) return;
+
+    // 1. Instant Cache Render
+    final cached = await FirebaseService.instance.getCachedNotifications(uid);
+    if (mounted && cached.isNotEmpty) {
+      setState(() {
+        _notifications = cached;
+        _loading = false;
+      });
+    } else {
+      if (mounted) setState(() => _loading = true);
     }
 
-    if (_notifications == null) setState(() => _loading = true);
+    // 2. Silent Background Fetch
+    try {
+      final fresh = await FirebaseService.instance.getNotifications(uid, limit: 20);
+      
+      // Need a snapshot for pagination startAfter
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('notifications')
+          .orderBy('createdAt', descending: true)
+          .limit(20)
+          .get();
+
+      if (mounted) {
+        setState(() {
+          _notifications = fresh;
+          _loading = false;
+          _lastDoc = snap.docs.isNotEmpty ? snap.docs.last : null;
+          _hasMore = fresh.length == 20;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    final uid = context.read<AuthProvider>().user?.uid;
+    if (uid == null || _lastDoc == null) return;
+
+    setState(() => _loadingMore = true);
 
     try {
-      // Use the new SWR-aware method
-      final notes = await FirebaseService.instance.getNotifications(uid);
-      if (mounted) setState(() { _notifications = notes; _loading = false; });
+      final more = await FirebaseService.instance.getNotifications(
+        uid, 
+        limit: 20, 
+        lastDoc: _lastDoc,
+      );
+
+      // Get the new lastDoc for next page
+      final query = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('notifications')
+          .orderBy('createdAt', descending: true)
+          .startAfterDocument(_lastDoc!)
+          .limit(20)
+          .get();
+
+      if (mounted) {
+        setState(() {
+          _notifications!.addAll(more);
+          _loadingMore = false;
+          _lastDoc = query.docs.isNotEmpty ? query.docs.last : null;
+          _hasMore = more.length == 20;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() { _notifications = []; _loading = false; });
+      if (mounted) setState(() => _loadingMore = false);
     }
+  }
+
+  Future<void> _onRefresh() async {
+    _lastDoc = null;
+    _hasMore = true;
+    await _loadInitial();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading && (_notifications == null || _notifications!.isEmpty)) {
+      return const _ShimmerList(); // FIX 3: Shimmer
+    }
 
     final uid = context.read<AuthProvider>().user?.uid;
     if (uid == null) return _SignInPrompt();
@@ -242,12 +332,21 @@ class _NotificationsFeedState extends State<_NotificationsFeed> {
     }
 
     return RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: _onRefresh,
       child: ListView.separated(
+        controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        itemCount: _notifications!.length,
+        itemCount: _notifications!.length + (_hasMore ? 1 : 0),
         separatorBuilder: (_, __) => const Divider(height: 1, indent: 72, endIndent: 16),
-        itemBuilder: (context, i) => _NotificationTile(data: _notifications![i]),
+        itemBuilder: (context, i) {
+          if (i == _notifications!.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            );
+          }
+          return _NotificationTile(data: _notifications![i]);
+        },
       ),
     );
   }
@@ -288,6 +387,7 @@ class _NotificationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = data['type'] as String? ?? 'other';
     final actorName = data['actorName'] as String? ?? 'Someone';
+    final actorImageUrl = data['actorImageUrl'] as String?; // FIX 4: Avatar Support
     final title = data['postTitle'] as String?;
     final ts = data['createdAt'];
     DateTime? date;
@@ -299,15 +399,34 @@ class _NotificationTile extends StatelessWidget {
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: _iconColor(context, type).withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(_icon(type), color: _iconColor(context, type), size: 22),
-      ),
+      leading: actorImageUrl != null
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(100),
+              child: CachedNetworkImage(
+                imageUrl: actorImageUrl,
+                width: 44,
+                height: 44,
+                fit: BoxFit.cover,
+                // FIX 4: Background Image Decoding (Reduced memory footprint)
+                memCacheWidth: 150,
+                placeholder: (context, url) => Container(
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                  child: Icon(_icon(type), color: _iconColor(context, type), size: 22),
+                ),
+              ),
+            )
+          : Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: _iconColor(context, type).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(_icon(type), color: _iconColor(context, type), size: 22),
+            ),
       title: Text(
         _message(type, actorName),
         style: GoogleFonts.literata(fontSize: 14, color: Theme.of(context).colorScheme.onSurface),
@@ -383,6 +502,50 @@ class _SignInPrompt extends StatelessWidget {
             child: const Text('Sign In'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── FIX 3: Shimmer Skeleton Loader ──────────────────────────────────────────
+
+class _ShimmerList extends StatelessWidget {
+  const _ShimmerList();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).brightness == Brightness.dark
+        ? Colors.grey[800]!
+        : Colors.grey[300]!;
+    final highlight = Theme.of(context).brightness == Brightness.dark
+        ? Colors.grey[700]!
+        : Colors.grey[100]!;
+
+    return Shimmer.fromColors(
+      baseColor: color,
+      highlightColor: highlight,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        itemCount: 8,
+        itemBuilder: (context, index) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              const CircleAvatar(radius: 22, backgroundColor: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(height: 12, width: 140, color: Colors.white),
+                    const SizedBox(height: 6),
+                    Container(height: 10, width: 220, color: Colors.white),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

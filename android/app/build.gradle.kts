@@ -6,7 +6,7 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-project.layout.buildDirectory.set(file("D:/21stRomanticists_build_output"))
+// project.layout.buildDirectory.set(file("D:/21stRomanticists_build_output"))
 
 android {
     namespace = "com.example.romanticists_app"

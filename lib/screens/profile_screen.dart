@@ -8,8 +8,10 @@ import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/models/submission.dart';
 import 'package:romanticists_app/models/post.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
+import 'package:romanticists_app/providers/posts_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/providers/collections_provider.dart';
+import 'package:romanticists_app/widgets/full_screen_viewer.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -106,10 +108,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               pinned: true,
               backgroundColor: Theme.of(context).colorScheme.surface,
               elevation: 0,
-              leading: IconButton(
-                icon: Icon(Icons.menu, color: Theme.of(context).colorScheme.primary),
-                onPressed: () {}, // Drawer or Menu
-              ),
+              automaticallyImplyLeading: false, // FIX 5: Clean UI
               centerTitle: true,
               title: Text(
                 'The 21st Romanticists',
@@ -135,38 +134,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 24),
                   // Avatar with Edit Button
                   GestureDetector(
-                    onTap: () => context.push('/edit-profile').then((_) => _load()),
+                    onTap: () {
+                      if (photoUrl != null) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => FullScreenViewer(
+                              imageUrl: photoUrl,
+                              heroTag: 'profile_avatar',
+                              showEditButton: true,
+                              onEdit: () => context.push('/edit-profile').then((_) => _load()),
+                            ),
+                          ),
+                        );
+                      } else {
+                        context.push('/edit-profile').then((_) => _load());
+                      }
+                    },
                     child: Stack(
                       children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            image: photoUrl != null
-                                ? DecorationImage(
-                                    image: CachedNetworkImageProvider(
-                                      photoUrl,
-                                    ),
-                                    fit: BoxFit.cover)
+                        Hero(
+                          tag: 'profile_avatar',
+                          child: Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              image: photoUrl != null
+                                  ? DecorationImage(
+                                      image: CachedNetworkImageProvider(
+                                        photoUrl,
+                                      ),
+                                      fit: BoxFit.cover)
+                                  : null,
+                              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                            ),
+                            child: photoUrl == null
+                                ? Icon(Icons.person,
+                                    size: 60, color: Theme.of(context).colorScheme.outline)
                                 : null,
-                            color: Theme.of(context).colorScheme.surfaceContainerHigh,
                           ),
-                          child: photoUrl == null
-                              ? Icon(Icons.person,
-                                  size: 60, color: Theme.of(context).colorScheme.outline)
-                              : null,
                         ),
                         Positioned(
                           bottom: 0,
                           right: 0,
                           child: Container(
                             padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               color: Colors.black,
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.edit,
+                            child: const Icon(Icons.edit,
                                 color: Colors.white, size: 16),
                           ),
                         ),
@@ -610,8 +627,20 @@ class _GridCard extends StatelessWidget {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              await FirebaseService.instance.deleteSubmission(sub.id!);
-              onAction?.call();
+              // [PHASE 3 FIX: Global Deletion]
+              try {
+                await FirebaseService.instance.deletePost(sub.id!);
+                if (context.mounted) {
+                  context.read<PostsProvider>().removePostLocally(sub.id!);
+                  onAction?.call();
+                }
+              } catch (e) {
+                if (context.mounted) {
+                   ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to delete: $e'))
+                  );
+                }
+              }
             },
             child: Text('DELETE', style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),

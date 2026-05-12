@@ -13,63 +13,33 @@ class EngagementService {
 
   // ─── Likes ──────────────────────────────────────────────────────────────────
 
-  Future<void> likePost(String userId, String postId, String? authorUid) async {
+  Future<void> toggleLike(String userId, String postId, bool currentlyLiked) async {
     final postRef = _db.collection(_submissionsCol).doc(postId);
-    final likeRef = postRef.collection('likes').doc(userId);
     final userLikeRef = _db.collection(_usersCol).doc(userId).collection('likes').doc(postId);
 
     await _db.runTransaction((transaction) async {
       final postDoc = await transaction.get(postRef);
       if (!postDoc.exists) return;
 
-      final likeDoc = await transaction.get(likeRef);
-      if (likeDoc.exists) return;
+      final likedBy = List<String>.from(postDoc.data()?['likedBy'] ?? []);
+      final isLiked = likedBy.contains(userId);
 
-      // 1. Post-side subcollection (public)
-      transaction.set(likeRef, {
-        'userId': userId,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // 2. User-side collection (private, for feed state)
-      transaction.set(userLikeRef, {
-        'postId': postId,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // 3. Increment counter
-      transaction.update(postRef, {
-        'likeCount': FieldValue.increment(1),
-      });
-    });
-
-    if (authorUid != null && authorUid != userId) {
-      await FirebaseService.instance.sendNotification(
-        targetUid: authorUid,
-        type: 'like',
-        actorName: 'A reader', // We could fetch actual name if needed
-      );
-    }
-  }
-
-  Future<void> unlikePost(String userId, String postId) async {
-    final postRef = _db.collection(_submissionsCol).doc(postId);
-    final likeRef = postRef.collection('likes').doc(userId);
-    final userLikeRef = _db.collection(_usersCol).doc(userId).collection('likes').doc(postId);
-
-    await _db.runTransaction((transaction) async {
-      final postDoc = await transaction.get(postRef);
-      if (!postDoc.exists) return;
-
-      final likeDoc = await transaction.get(likeRef);
-      if (!likeDoc.exists) return;
-
-      transaction.delete(likeRef);
-      transaction.delete(userLikeRef);
-      
-      transaction.update(postRef, {
-        'likeCount': FieldValue.increment(-1),
-      });
+      if (isLiked) {
+        transaction.update(postRef, {
+          'likedBy': FieldValue.arrayRemove([userId]),
+          'likeCount': FieldValue.increment(-1),
+        });
+        transaction.delete(userLikeRef);
+      } else {
+        transaction.update(postRef, {
+          'likedBy': FieldValue.arrayUnion([userId]),
+          'likeCount': FieldValue.increment(1),
+        });
+        transaction.set(userLikeRef, {
+          'postId': postId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
     });
   }
 
@@ -88,41 +58,34 @@ class EngagementService {
 
   // ─── Reshares (Restacks) ────────────────────────────────────────────────────
 
-  Future<void> restackPost(String userId, String postId, {String? authorUid, String? postTitle}) async {
+  Future<void> toggleRepost(String userId, String postId) async {
     final postRef = _db.collection(_submissionsCol).doc(postId);
-    final reshareRef = postRef.collection('reshares').doc(userId);
     final userRestackRef = _db.collection(_usersCol).doc(userId).collection('restacks').doc(postId);
 
     await _db.runTransaction((transaction) async {
       final postDoc = await transaction.get(postRef);
       if (!postDoc.exists) return;
 
-      final reshareDoc = await transaction.get(reshareRef);
-      if (reshareDoc.exists) return;
+      final repostedBy = List<String>.from(postDoc.data()?['repostedBy'] ?? []);
+      final isReposted = repostedBy.contains(userId);
 
-      transaction.set(reshareRef, {
-        'userId': userId,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      transaction.set(userRestackRef, {
-        'postId': postId,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      transaction.update(postRef, {
-        'reshareCount': FieldValue.increment(1),
-      });
+      if (isReposted) {
+        transaction.update(postRef, {
+          'repostedBy': FieldValue.arrayRemove([userId]),
+          'reshareCount': FieldValue.increment(-1),
+        });
+        transaction.delete(userRestackRef);
+      } else {
+        transaction.update(postRef, {
+          'repostedBy': FieldValue.arrayUnion([userId]),
+          'reshareCount': FieldValue.increment(1),
+        });
+        transaction.set(userRestackRef, {
+          'postId': postId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
     });
-
-    if (authorUid != null && authorUid != userId) {
-      await FirebaseService.instance.sendNotification(
-        targetUid: authorUid,
-        type: 'restack',
-        actorName: 'A reader',
-        postTitle: postTitle,
-      );
-    }
   }
 
   // ─── View Tracking ────────────────────────────────────────────────────────

@@ -254,6 +254,9 @@ class FirebaseService {
     }
   }
 
+  /// Global alias for post deletion
+  Future<void> deletePost(String postId) => deleteSubmission(postId);
+
   static const String _userSubmissionsCachePrefix = 'user_subs_cache_';
 
   /// Instantly returns locally cached submissions for immediate UI rendering.
@@ -489,37 +492,43 @@ class FirebaseService {
   // ─── Notifications ────────────────────────────────────────────────────────
 
   static const _notificationsSub = 'notifications';
-
   static const String _notificationsCachePrefix = 'notifications_cache_';
 
-  /// Fetches notifications with SWR caching.
-  Future<List<Map<String, dynamic>>> getNotifications(String uid) async {
+  /// Returns locally cached notifications for instant UI rendering.
+  Future<List<Map<String, dynamic>>> getCachedNotifications(String uid) async {
     final cacheKey = '$_notificationsCachePrefix$uid';
-    
-    // Cache read
-    List<Map<String, dynamic>> cached = [];
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(cacheKey);
       if (raw != null) {
         final List<dynamic> list = jsonDecode(raw);
-        cached = list.map((m) {
-          final map = Map<String, dynamic>.from(m);
-          // DateTime back to Timestamp or just keep as String/DateTime?
-          // Since it's for UI, we'll convert the saved ISO string to a DateTime or Map
-          return map;
-        }).toList();
+        return list.map((m) => Map<String, dynamic>.from(m)).toList();
       }
     } catch (_) {}
+    return [];
+  }
+
+  /// Fetches notifications from Firestore with pagination and SWR caching.
+  Future<List<Map<String, dynamic>>> getNotifications(
+    String uid, {
+    int limit = 20,
+    DocumentSnapshot? lastDoc,
+  }) async {
+    final cacheKey = '$_notificationsCachePrefix$uid';
 
     try {
-      final snap = await _db
+      var query = _db
           .collection(_usersCol)
           .doc(uid)
           .collection(_notificationsSub)
           .orderBy('createdAt', descending: true)
-          .limit(50)
-          .get();
+          .limit(limit);
+
+      if (lastDoc != null) {
+        query = query.startAfterDocument(lastDoc);
+      }
+
+      final snap = await query.get();
 
       final fresh = snap.docs.map((d) {
         final data = d.data();
@@ -531,21 +540,25 @@ class FirebaseService {
         };
       }).toList();
 
-      // Cache write
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(cacheKey, jsonEncode(fresh));
+      // Only overwrite cache on the first page load
+      if (lastDoc == null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(cacheKey, jsonEncode(fresh));
+      }
 
       return fresh;
-    } catch (_) {
-      return cached;
+    } catch (e) {
+      debugPrint('[FirebaseService] Error fetching notifications: $e');
+      return [];
     }
   }
 
   /// Writes a notification document to a target user's notifications subcollection.
   Future<void> sendNotification({
     required String targetUid,
-    required String type,       // 'subscribe' | 'like' | 'new_post'
+    required String type, // 'subscribe' | 'like' | 'new_post'
     required String actorName,
+    String? actorImageUrl, // Added for UI optimization
     String? postTitle,
   }) async {
     try {
@@ -556,13 +569,12 @@ class FirebaseService {
           .add({
         'type': type,
         'actorName': actorName,
+        if (actorImageUrl != null) 'actorImageUrl': actorImageUrl,
         if (postTitle != null) 'postTitle': postTitle,
         'createdAt': FieldValue.serverTimestamp(),
         'read': false,
       });
-    } catch (_) {
-      // Notifications are best-effort — never block the main action
-    }
+    } catch (_) {}
   }
 
   // ─── Bookmarks ────────────────────────────────────────────────────────────

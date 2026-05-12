@@ -4,45 +4,147 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
+import 'package:romanticists_app/services/engagement_service.dart';
 
-class InteractionBar extends StatelessWidget {
+class InteractionBar extends StatefulWidget {
+  final String postId;
+  final String? authorUid;
   final int likeCount;
   final int commentCount;
   final int reshareCount;
   final bool isLiked;
   final bool isReshared;
   final bool isSaved;
-  final VoidCallback onLike;
   final VoidCallback onComment;
-  final VoidCallback onReshare;
   final VoidCallback onSave;
   final VoidCallback onShare;
   final bool visible;
 
   const InteractionBar({
     super.key,
+    required this.postId,
+    this.authorUid,
     required this.likeCount,
     required this.commentCount,
     required this.reshareCount,
     this.isLiked = false,
     this.isReshared = false,
     this.isSaved = false,
-    required this.onLike,
     required this.onComment,
-    required this.onReshare,
     required this.onSave,
     required this.onShare,
     this.visible = true,
   });
 
   @override
+  State<InteractionBar> createState() => _InteractionBarState();
+}
+
+class _InteractionBarState extends State<InteractionBar> {
+  late int _localLikeCount;
+  late int _localReshareCount;
+  late bool _localIsLiked;
+  late bool _localIsReshared;
+
+  @override
+  void initState() {
+    super.initState();
+    _localLikeCount = widget.likeCount;
+    _localReshareCount = widget.reshareCount;
+    _localIsLiked = widget.isLiked;
+    _localIsReshared = widget.isReshared;
+  }
+
+  @override
+  void didUpdateWidget(InteractionBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sync if external state changes (e.g. after a refresh)
+    if (oldWidget.likeCount != widget.likeCount) _localLikeCount = widget.likeCount;
+    if (oldWidget.reshareCount != widget.reshareCount) _localReshareCount = widget.reshareCount;
+    if (oldWidget.isLiked != widget.isLiked) _localIsLiked = widget.isLiked;
+    if (oldWidget.isReshared != widget.isReshared) _localIsReshared = widget.isReshared;
+  }
+
+  // ─── OPTIMISTIC HANDLERS ───────────────────────────────────────────────────
+
+  Future<void> _handleLike() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) return _showLoginPrompt();
+
+    final prevIsLiked = _localIsLiked;
+    final prevCount = _localLikeCount;
+
+    setState(() {
+      _localIsLiked = !_localIsLiked;
+      _localLikeCount += _localIsLiked ? 1 : -1;
+    });
+
+    try {
+      await EngagementService.instance.toggleLike(auth.uid!, widget.postId, prevIsLiked);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _localIsLiked = prevIsLiked;
+        _localLikeCount = prevCount;
+      });
+      _showError('Failed to update like. Please try again.');
+    }
+  }
+
+  Future<void> _handleReshare() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) return _showLoginPrompt();
+
+    final prevIsReshared = _localIsReshared;
+    final prevCount = _localReshareCount;
+
+    setState(() {
+      _localIsReshared = !_localIsReshared;
+      _localReshareCount += _localIsReshared ? 1 : -1;
+    });
+
+    try {
+      await EngagementService.instance.toggleRepost(auth.uid!, widget.postId);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _localIsReshared = prevIsReshared;
+        _localReshareCount = prevCount;
+      });
+      _showError('Failed to update repost. Please try again.');
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
+    );
+  }
+
+  void _showLoginPrompt() {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Login needed, sign up first.', style: GoogleFonts.literata(color: Colors.white)),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'LOGIN',
+          textColor: AppColors.accent,
+          onPressed: () => context.push('/login'),
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedSlide(
-      offset: visible ? Offset.zero : const Offset(0, 1.5),
+      offset: widget.visible ? Offset.zero : const Offset(0, 1.5),
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOutCubic,
       child: AnimatedOpacity(
-        opacity: visible ? 1.0 : 0.0,
+        opacity: widget.visible ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 200),
         child: Container(
           margin: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
@@ -63,34 +165,34 @@ class InteractionBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _InteractionItem(
-                icon: isLiked ? Icons.favorite : Icons.favorite_border,
-                label: _formatCount(likeCount),
-                color: isLiked ? Colors.redAccent : Colors.white,
-                onTap: () => _guardedAction(context, onLike),
+                icon: _localIsLiked ? Icons.favorite : Icons.favorite_border,
+                label: _formatCount(_localLikeCount),
+                color: _localIsLiked ? Colors.redAccent : Colors.white,
+                onTap: _handleLike,
               ),
               const _Divider(),
               _InteractionItem(
                 icon: Icons.chat_bubble_outline,
-                label: _formatCount(commentCount),
-                onTap: () => _guardedAction(context, onComment),
+                label: _formatCount(widget.commentCount),
+                onTap: widget.onComment,
               ),
               const _Divider(),
               _InteractionItem(
                 icon: Icons.repeat, 
-                label: _formatCount(reshareCount),
-                color: isReshared ? Colors.greenAccent : Colors.white,
-                onTap: () => _guardedAction(context, onReshare),
+                label: _formatCount(_localReshareCount),
+                color: _localIsReshared ? Colors.greenAccent : Colors.white,
+                onTap: _handleReshare,
               ),
               const _Divider(),
               _InteractionItem(
-                icon: isSaved ? Icons.bookmark : Icons.bookmark_border_outlined,
-                color: isSaved ? AppColors.accent : Colors.white,
-                onTap: () => _guardedAction(context, onSave),
+                icon: widget.isSaved ? Icons.bookmark : Icons.bookmark_border_outlined,
+                color: widget.isSaved ? AppColors.accent : Colors.white,
+                onTap: widget.onSave,
               ),
               const _Divider(),
               _InteractionItem(
                 icon: Icons.share_outlined,
-                onTap: onShare, // Sharing is usually allowed for guests
+                onTap: widget.onShare,
               ),
             ],
           ),
@@ -102,39 +204,6 @@ class InteractionBar extends StatelessWidget {
   String _formatCount(int count) {
     if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}k';
     return count.toString();
-  }
-
-  // ─── AUTH GUARD ────────────────────────────────────────────────────────────
-  
-  /// Checks if the user is logged in before executing an engagement action.
-  /// If not, shows a SnackBar prompting the user to login.
-  void _guardedAction(BuildContext context, VoidCallback action) {
-    final auth = context.read<AuthProvider>();
-    if (auth.isAuthenticated) {
-      action();
-    } else {
-      // User is a guest: Block action and show login prompt
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Login needed, sign up first.',
-            style: GoogleFonts.literata(
-              color: Colors.white,
-              fontSize: 14,
-            ),
-          ),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: 'LOGIN',
-            textColor: AppColors.accent,
-            onPressed: () => context.push('/login'),
-          ),
-        ),
-      );
-    }
   }
 }
 

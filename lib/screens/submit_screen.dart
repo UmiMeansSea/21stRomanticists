@@ -146,20 +146,21 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
         imageUrl: widget.existingSubmission?.imageUrl,
       );
 
-      // [FIX] Await the initial setup to catch early errors (like model mapping or auth)
-      await context.read<UploadProvider>().startUpload(
+      // [PHASE 2 FIX: Decoupled Upload]
+      // Trigger the background upload via provider — do NOT await it here.
+      context.read<UploadProvider>().startUpload(
         uid: uid,
         submission: submission,
         imageFile: _imageFile,
         isUpdate: _currentSubmissionId != null,
       );
 
-      _hasPublished = true;
+      // Instantly remove from local feed if approved (optimistic)
       if (mounted) {
         context.read<PostsProvider>().addSubmissionLocally(submission);
         context.read<PostsProvider>().refresh();
-        _showSnack('Work published successfully.');
-        Navigator.of(context).pop();
+        _showSnack('Work is being published...');
+        Navigator.of(context).pop(); // Immediate navigation
       }
     } catch (e) {
       if (mounted) {
@@ -170,6 +171,15 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
   }
 
   Future<void> _saveDraft({bool silent = false}) async {
+    // FIX 3: Strict Draft Validation
+    final content = _contentController.text.trim();
+    final wordCount = content.isEmpty ? 0 : content.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).length;
+
+    if (!silent && wordCount < 3) {
+      _showSnack('All fields empty, at least write something?', isError: true);
+      return;
+    }
+
     if (!silent) setState(() => _isSavingDraft = true);
 
     final auth = context.read<AuthProvider>();
@@ -183,7 +193,7 @@ class _SubmitScreenState extends State<SubmitScreen> with WidgetsBindingObserver
         authorName: _isAnonymous ? 'Anonymous' : (auth.user?.displayName ?? ''),
         title: _titleController.text.trim(),
         category: _category,
-        content: _contentController.text.trim(),
+        content: content,
         isAnonymous: _isAnonymous,
         submittedAt: DateTime.now(),
         status: SubmissionStatus.draft,

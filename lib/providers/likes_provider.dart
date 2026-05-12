@@ -80,11 +80,7 @@ class LikesProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (wasLiked) {
-        await EngagementService.instance.unlikePost(uid, postId);
-      } else {
-        await EngagementService.instance.likePost(uid, postId, authorUid);
-      }
+      await EngagementService.instance.toggleLike(uid, postId, wasLiked);
       
       // Update cache
       final prefs = await SharedPreferences.getInstance();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -8,9 +9,16 @@ import 'package:romanticists_app/providers/upload_provider.dart';
 
 /// The root shell widget that owns the bottom navigation bar.
 /// go_router's ShellRoute renders child screens inside this.
-class AppShell extends StatelessWidget {
+class AppShell extends StatefulWidget {
   final Widget child;
   const AppShell({super.key, required this.child});
+
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  DateTime? _lastPressedTime;
 
   static const _tabs = [
     _TabItem(icon: Icons.home_outlined, activeIcon: Icons.home, label: 'Home', path: '/'),
@@ -34,19 +42,43 @@ class AppShell extends StatelessWidget {
     final idx = _currentIndex(context);
 
     return PopScope(
-      canPop: idx == 0, // Only allow system pop if on Home tab
+      canPop: false, // Always intercept to handle double-back logic
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        // If not on home tab, go back to home tab
+
+        // FIX 4: Double Back-Button to Exit
         if (idx != 0) {
+          // If not on Home tab, switch to Home tab first
           context.go('/');
+          return;
+        }
+
+        // We are on the Home tab (idx == 0)
+        final now = DateTime.now();
+        if (_lastPressedTime == null || 
+            now.difference(_lastPressedTime!) > const Duration(seconds: 2)) {
+          _lastPressedTime = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Press back again to exit',
+                style: GoogleFonts.inter(fontSize: 14, color: Colors.white),
+              ),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        } else {
+          // Second press within 2 seconds, exit the app
+          SystemNavigator.pop();
         }
       },
       child: Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
         body: Stack(
           children: [
-            child,
+            widget.child,
             // ── Background Upload Overlay ───────────────────────────────────
             const _UploadOverlay(),
           ],
@@ -71,9 +103,10 @@ class AppShell extends StatelessWidget {
                     selected: selected,
                     onTap: () {
                       if (selected) {
-                        // If already on Home, refresh and scroll to top
+                        // If already on Home, refresh, clear filters and scroll to top
                         if (i == 0) {
                           final provider = context.read<PostsProvider>();
+                          provider.clearFilters();
                           provider.refresh();
                           provider.requestScrollToTop();
                         }

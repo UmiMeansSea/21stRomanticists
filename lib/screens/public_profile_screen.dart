@@ -9,6 +9,7 @@ import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/services/firebase_service.dart';
 import 'package:romanticists_app/services/notification_service.dart';
 import 'package:romanticists_app/services/wp_api.dart';
+import 'package:romanticists_app/widgets/full_screen_viewer.dart';
 
 class PublicProfileScreen extends StatefulWidget {
   final String userId;
@@ -184,22 +185,39 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                     children: [
                       const SizedBox(height: 24),
                       // Avatar
-                      Container(
-                        width: 110,
-                        height: 110,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          image: photoUrl != null
-                              ? DecorationImage(
-                                  image: NetworkImage(photoUrl),
-                                  fit: BoxFit.cover)
-                              : null,
-                          color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                      GestureDetector(
+                        onTap: () {
+                          if (photoUrl != null) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => FullScreenViewer(
+                                  imageUrl: photoUrl,
+                                  heroTag: 'public_avatar_${widget.userId}',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        child: Hero(
+                          tag: 'public_avatar_${widget.userId}',
+                          child: Container(
+                            width: 110,
+                            height: 110,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              image: photoUrl != null
+                                  ? DecorationImage(
+                                      image: NetworkImage(photoUrl),
+                                      fit: BoxFit.cover)
+                                  : null,
+                              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                            ),
+                            child: photoUrl == null
+                                ? Icon(Icons.person,
+                                    size: 50, color: Theme.of(context).colorScheme.outline)
+                                : null,
+                          ),
                         ),
-                        child: photoUrl == null
-                            ? Icon(Icons.person,
-                                size: 50, color: Theme.of(context).colorScheme.outline)
-                            : null,
                       ),
                       const SizedBox(height: 20),
                       Text(

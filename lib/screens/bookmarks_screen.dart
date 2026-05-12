@@ -7,6 +7,7 @@ import 'package:romanticists_app/app_theme.dart';
 import 'package:romanticists_app/providers/auth_provider.dart';
 import 'package:romanticists_app/providers/bookmarks_provider.dart';
 import 'package:romanticists_app/providers/collections_provider.dart';
+import 'package:romanticists_app/widgets/post_card.dart';
 
 /// Shows the signed-in user's bookmarked posts and collections.
 class BookmarksScreen extends StatefulWidget {
@@ -102,51 +103,14 @@ class _AllPostsTab extends StatelessWidget {
             final uid = context.read<AuthProvider>().uid;
             if (uid != null) await bm.load(uid);
           },
-          child: GridView.builder(
-            padding: const EdgeInsets.all(2),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 2,
-              mainAxisSpacing: 2,
-              childAspectRatio: 1,
-            ),
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             itemCount: bm.items.length,
             itemBuilder: (context, i) {
               final item = bm.items[i];
-              return GestureDetector(
-                onTap: () {
-                  final uid = item.uniqueId;
-                  if (uid.startsWith('sub_') || item.isSubmission) {
-                    // Community submission — no extra since we don't have the live object
-                    context.push('/submission/$uid');
-                  } else {
-                    // WP post — strip 'wp_' prefix to get the numeric ID
-                    final postId = uid.startsWith('wp_') ? uid.substring(3) : uid;
-                    context.push('/post/$postId');
-                  }
-                },
-                child: Container(
-                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                  child: item.imageUrl != null && item.imageUrl!.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: item.imageUrl!,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => const SizedBox(),
-                          errorWidget: (_, __, ___) => Center(child: Icon(Icons.article, color: Theme.of(context).colorScheme.outline)),
-                        )
-                      : Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              item.title,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.ebGaramond(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                            ),
-                          ),
-                        ),
-                ),
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: FeedCard(item: item),
               );
             },
           ),

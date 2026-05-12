@@ -149,9 +149,20 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: EdgeInsets.zero,
               children: [
                 _buildDrawerItem(
+                  icon: Icons.all_inclusive,
+                  label: 'All',
+                  // Highlight "All" if no active filter is set
+                  selected: provider.activeFilter == null,
+                  onTap: () {
+                    Navigator.pop(context);
+                    provider.clearFilters();
+                  },
+                ),
+                _buildDrawerItem(
                   icon: Icons.article_outlined,
                   label: 'Prose',
-                  selected: provider.selectedCategory?.id == proseCat.id && !provider.filterAnonymous && provider.selectedTag == null,
+                  // Compare against unified activeFilter state
+                  selected: provider.activeFilter == 'Prose',
                   onTap: () {
                     Navigator.pop(context);
                     provider.setFilter('Prose');
@@ -160,7 +171,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildDrawerItem(
                   icon: Icons.auto_stories_outlined,
                   label: 'Poems',
-                  selected: provider.selectedCategory?.id == poemsCat.id && !provider.filterAnonymous && provider.selectedTag == null,
+                  // Compare against unified activeFilter state
+                  selected: provider.activeFilter == 'Poems',
                   onTap: () {
                     Navigator.pop(context);
                     provider.setFilter('Poems');
@@ -169,10 +181,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildDrawerItem(
                   icon: Icons.visibility_off_outlined,
                   label: 'Anonymous Submissions',
-                  selected: provider.filterAnonymous,
+                  // Handle Anonymous highlight via unified activeFilter
+                  selected: provider.activeFilter == 'Anonymous',
                   onTap: () {
                     Navigator.pop(context);
-                    provider.toggleAnonymousFilter();
+                    provider.setFilter('Anonymous');
                   },
                 ),
                 const Divider(height: 32, indent: 20, endIndent: 20),
@@ -205,11 +218,23 @@ class _HomeScreenState extends State<HomeScreen> {
                         items: [
                           DropdownMenuItem<String>(
                             value: null,
-                            child: Text('All Tags', style: GoogleFonts.inter(fontSize: 14)),
+                            child: Text(
+                              'All Tags', 
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: Theme.of(context).colorScheme.onSurface, // FIX 2: Visibility
+                              ),
+                            ),
                           ),
                           ...provider.allTags.map((tag) => DropdownMenuItem<String>(
                             value: tag,
-                            child: Text(tag, style: GoogleFonts.inter(fontSize: 14)),
+                            child: Text(
+                              tag, 
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: Theme.of(context).colorScheme.onSurface, // FIX 2: Visibility
+                              ),
+                            ),
                           )),
                         ],
                         onChanged: (tag) {
@@ -217,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           if (tag != null) {
                             provider.setFilter(tag);
                           } else {
-                            provider.setFilter('All'); // or clear filter
+                            provider.clearFilters();
                           }
                         },
                       ),

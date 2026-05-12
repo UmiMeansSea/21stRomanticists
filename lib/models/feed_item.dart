@@ -14,6 +14,7 @@ class FeedItem {
   final String? imageUrl;
   final DateTime publishedAt;
   final bool isSubmission;
+  final bool isAnonymous;
   final String categoryLabel;
   final List<String> tags;
   final int likeCount;
@@ -36,6 +37,7 @@ class FeedItem {
     this.imageUrl,
     required this.publishedAt,
     required this.isSubmission,
+    this.isAnonymous = false,
     this.categoryLabel = '',
     this.tags = const [],
     this.likeCount = 0,
@@ -63,6 +65,7 @@ class FeedItem {
       imageUrl: imageUrl,
       publishedAt: post.publishedAt,
       isSubmission: false,
+      isAnonymous: false,
       categoryLabel: categoryLabel,
       tags: post.tagNames,
       wpPost: post,
@@ -84,6 +87,7 @@ class FeedItem {
       imageUrl: imageUrl,
       publishedAt: s.submittedAt,
       isSubmission: true,
+      isAnonymous: s.isAnonymous,
       categoryLabel: s.category.label,
       tags: s.tags,
       likeCount: s.likeCount,
@@ -105,6 +109,7 @@ class FeedItem {
     'imageUrl': imageUrl,
     'publishedAt': publishedAt.toIso8601String(),
     'isSubmission': isSubmission,
+    'isAnonymous': isAnonymous,
     'categoryLabel': categoryLabel,
     'tags': tags,
     'likeCount': likeCount,
@@ -125,6 +130,7 @@ class FeedItem {
       imageUrl: json['imageUrl'] as String?,
       publishedAt: DateTime.tryParse(json['publishedAt'] as String? ?? '') ?? DateTime.now(),
       isSubmission: json['isSubmission'] as bool? ?? false,
+      isAnonymous: json['isAnonymous'] as bool? ?? false,
       categoryLabel: json['categoryLabel'] as String? ?? '',
       tags: List<String>.from(json['tags'] ?? []),
       likeCount: json['likeCount'] as int? ?? 0,

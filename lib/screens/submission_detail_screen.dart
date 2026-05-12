@@ -520,6 +520,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
           final isSaved = bm.isBookmarked(uniqueId);
 
           return InteractionBar(
+            postId: submission.id!,
             visible: _showInteractionBar,
             likeCount: submission.likeCount,
             commentCount: submission.commentCount,
@@ -527,9 +528,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
             isLiked: isLiked,
             isReshared: submission.isReshared,
             isSaved: isSaved,
-            onLike: _handleLike,
             onComment: _handleComment,
-            onReshare: _handleReshare,
             onSave: _handleSave,
             onShare: _handleShare,
           );
@@ -614,11 +613,9 @@ if (_submission.isReshared) return; // Only allow reshare once for now
 
 final service = EngagementService.instance;
 try {
-  await service.restackPost(
+  await service.toggleRepost(
     auth.uid!, 
     _submission.id!, 
-    authorUid: _submission.userId,
-    postTitle: _submission.title,
   );
   setState(() {
     _submission = _submission.copyWith(

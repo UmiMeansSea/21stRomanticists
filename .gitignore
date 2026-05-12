@@ -32,6 +32,7 @@ migrate_working_dir/
 /coverage/
 
 # Android specifics
+/android/app/build/
 /android/app/debug
 /android/app/profile
 /android/app/release
